@@ -259,8 +259,12 @@ class Customer:
 
         # Step 3: Ask for Product Name
         product_name = input("\nEnter the product name for which you want to request a return or replacement: ")
+
+        # Join item_purchase_history and products tables on item_name and fetch category
         self.cursor.execute(
-            "SELECT quantity, price FROM item_purchase_history WHERE bill_id = ? AND item_name = ?",
+            "SELECT iph.quantity, iph.price, p.category FROM item_purchase_history iph "
+            "JOIN products p ON iph.item_name = p.name "
+            "WHERE iph.bill_id = ? AND iph.item_name = ?",
             (bill_id, product_name)
         )
         product = self.cursor.fetchone()
@@ -269,7 +273,17 @@ class Customer:
             print(f"Product '{product_name}' not found in the bill. Please try again.")
             return
 
-        quantity, price_per_item = product
+        quantity, price_per_item, category = product
+
+        # List of restricted categories for return and replacement
+        restricted_categories = [
+            "Dairy", "Snacks", "Beverages", "Fruits", "Bakery", "Vegetables", 
+        ]
+
+        # Check if the product category is restricted
+        if category in restricted_categories:
+            print(f"Sorry, products in the '{category}' category cannot be returned or replaced because they are from Consumables Category.")
+            return
 
         # Step 4: Choose between Return and Replacement
         print("\nWhat would you like to do?")
@@ -285,7 +299,6 @@ class Customer:
                 "Expired Product",
                 "Other"
             ]
-            
             print("\nSelect a reason for return:")
             for i, reason in enumerate(reasons_return, 1):
                 print(f"{i}. {reason}")
