@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import matplotlib.pyplot as plt
 from tabulate import tabulate  #for Table Formats
 from termcolor import colored  #for Table Colored
 from datetime import datetime, timedelta
@@ -31,28 +32,24 @@ class Customer:
 
     # Register customer
     @staticmethod
-    def register(name, phone, password):
-        connection = sqlite3.connect(DB_NAME)
-        cursor = connection.cursor()
-        cursor.execute("INSERT INTO customers (name, phone, password, smart_coins) VALUES (?, ?, ?, ?)", 
-        (name, phone, password, 0.0))
-        connection.commit()
-        print("Registration successful! Please log in.")
-# -----------------------------------------------------------------------------------------------------------------
-    # Login for customer
-    @staticmethod
+    
     def login(phone, password):
         connection = sqlite3.connect(DB_NAME)
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM customers WHERE phone = ? AND password = ?", (phone, password))
         customer_data = cursor.fetchone()
-        
 
+        # Decoration for the welcome message
+        border = "=" * 50
         if customer_data:
-            print(f"Welcome back, {customer_data[1]}!")
+            print(colored("\n" + border, "cyan"))
+            print(colored(f"\n{'Welcome back, ' + customer_data[1] + '!':^50}", "yellow", attrs=["bold"]))
+            print(colored(border, "cyan"))
             return Customer(customer_data[1], customer_data[2], customer_data[3], customer_data[4])
         else:
-            print("Invalid login credentials.")
+            print(colored("\n" + border, "red"))
+            print(colored(f"\n{'Invalid login credentials. Please try again.':^50}", "red", attrs=["bold"]))
+            print(colored(border, "red"))
             return None
 # -----------------------------------------------------------------------------------------------------------------
 
@@ -666,7 +663,7 @@ class Customer:
 
                 # Update the item_purchase_history table to track purchased items
 
-                # Step 1: Update item_purchase_history table to track purchased items
+                # Update the item_purchase_history table to track purchased items
                 cursor.execute("""
                     INSERT INTO item_purchase_history (customer_mobile, item_name, quantity, bill_id, price)
                     VALUES (?, ?, ?, ?, ?)
@@ -674,7 +671,7 @@ class Customer:
                         quantity = quantity + excluded.quantity
                 """, (customer_mob, item['name'], item['quantity'], bill_id, item['price']))
 
-                # Commit the changes
+                # Commit the changes to item_purchase_history
                 connection.commit()
 
                 # Step 2: Calculate the top 5 purchased items based on cumulative quantity (from the start)
@@ -692,37 +689,160 @@ class Customer:
 
                 # Step 3: Insert or update the top 5 items into the top_items table
                 for item in top_items:
-                    # If the item already exists in top_items, update it
                     cursor.execute("""
                         INSERT INTO top_items (customer_mobile, item_name, total_quantity)
                         VALUES (?, ?, ?)
                         ON CONFLICT(customer_mobile, item_name) DO UPDATE SET
-                            total_quantity = total_quantity + excluded.total_quantity
+                            total_quantity = excluded.total_quantity
                     """, (customer_mob, item[0], item[1]))
 
-                # Commit after updating the top_items table
+                # Commit the changes to the top_items table
                 connection.commit()
 
-                # Now top_items table will have the latest top 5 items for that customer
+                # Now the top_items table will have the latest top 5 items for that customer
 
+    
 
+    
         # Commit the changes and close the connection
         connection.commit()
         cursor.close()  # Close the cursor
-        connection.close()  # Close the connection
+    
+# -----------------------------------------------------------------------------------------------------------------
+
+    # For Monthly Spendings Graph using Matplotlib
+
+    def view_monthly_spendings(self):
+        self.cursor.execute("""
+            SELECT category, SUM(total_spent) AS total_spent
+            FROM monthly_spending
+            WHERE customer_mobile = ?
+            GROUP BY category
+            """, (self.phone,))
+        results = self.cursor.fetchall()
+
+        if not results:
+            print("No monthly spending data found.")
+            return
+
+        categories = [row[0] for row in results]
+        total_spent = [row[1] for row in results]
+
+        # Plotting
+        plt.figure(figsize=(10, 6))
+        plt.bar(categories, total_spent, color='skyblue')
+        plt.title(f"Monthly Spending by Category ({datetime.now().strftime('%B %Y')})", fontsize=16)
+        plt.xlabel("Category", fontsize=12)
+        plt.ylabel("Total Spent (₹)", fontsize=12)
+        plt.xticks(rotation=45)
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        plt.show()
+# -----------------------------------------------------------------------------------------------------------------
+
+    # For Ctegory Wise Spending Graph using Matplotlib
+    def view_category_spendings(self):
+        self.cursor.execute("""
+            SELECT category, SUM(total_spent) AS total_spent
+            FROM category_spending
+            WHERE customer_mobile = ?
+            GROUP BY category
+            """, (self.phone,))
+        results = self.cursor.fetchall()
+
+        if not results:
+            print("No category-wise spending data found.")
+            return
+
+        categories = [row[0] for row in results]
+        total_spent = [row[1] for row in results]
+
+        # Plotting
+        plt.figure(figsize=(10, 6))
+        plt.pie(total_spent, labels=categories, autopct='%1.1f%%', startangle=140, colors=plt.cm.tab20.colors)
+        plt.title("Category-Wise Spending Distribution", fontsize=16)
+        plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+        plt.tight_layout()
+        plt.show()
+
+# -----------------------------------------------------------------------------------------------------------------
+
+    def view_top_purchased_items(self):
+        # Query to fetch the top 5 purchased items from the top_items table
+        self.cursor.execute("""
+            SELECT item_name, total_quantity
+            FROM top_items
+            WHERE customer_mobile = ?
+            ORDER BY total_quantity DESC
+            LIMIT 5
+        """, (self.phone,))
+        results = self.cursor.fetchall()
+
+        # Check if results exist
+        if not results:
+            print("No top purchased items found.")
+            return
+
+        # Extracting items and their quantities
+        items = [row[0] for row in results]
+        quantities = [row[1] for row in results]
+
+        # Ensure X-axis scales properly and reflects the full range of data
+        max_quantity = max(quantities) if quantities else 0
+        min_quantity = min(quantities) if quantities else 0
+
+        # Plotting the bar chart
+        plt.figure(figsize=(10, 6))
+        bars = plt.barh(items, quantities, color='limegreen', edgecolor='black')
+        plt.title("Top 5 Purchased Items", fontsize=16, weight='bold')
+        plt.xlabel("Total Quantity Purchased", fontsize=12)
+        plt.ylabel("Items", fontsize=12)
+        plt.gca().invert_yaxis()  # Invert y-axis for better readability
+        plt.xticks(fontsize=10)
+        plt.yticks(fontsize=10)
+        plt.grid(axis='x', linestyle='--', alpha=0.7)
+
+        # Annotate the bar chart with quantities
+        for bar, quantity in zip(bars, quantities):
+            plt.text(bar.get_width() + 0.2, bar.get_y() + bar.get_height() / 2,
+                    f"{quantity}", va='center', ha='left', fontsize=10)
+
+        # Adjust X-axis range dynamically based on maximum quantity
+        plt.xlim(0, max_quantity + (max_quantity * 0.2))  # Add 20% buffer
+
+        # Explicitly force the graph to handle larger values if needed
+        plt.tight_layout()
+        plt.show()
+
 # -----------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------------------------
         
 
 # Main Function
+
 def main():
     # Assuming database is initialized and customers are registered
     while True:
-        print("\nWelcome to Smart Billing System")
-        print("1. Register")
-        print("2. Login")
-        print("3. Exit")
+        width = os.get_terminal_size().columns
+
+        # The message you want to center
+        message = "Welcome to Smart Billing System & Customer Services"
+
+        # Print the message centered
+        print("\n" + colored(message.center(width), "yellow", attrs=["bold"]))
+        print(colored("\nPlease choose an option:", "green"))
+        
+        # Display the main menu options in a table
+        main_menu = [
+            ["1", "Register"],
+            ["2", "Login"],
+            ["3", "Exit"]
+        ]
+        
+        # Tabulate main menu
+        main_menu_table = tabulate(main_menu, tablefmt="fancy_grid", stralign="center")
+        print(colored(main_menu_table, "cyan"))
 
         choice = input("Enter your choice: ")
 
@@ -739,23 +859,30 @@ def main():
 
             if customer:
                 while True:
-                    print("\nCustomer Menu:")
-                    print("1. View Profile")
-                    print("2. View Products")
-                    print("3. Generate Bill")
-                    print("4. View Past Bills")
-                    print("5. View Offers [Buy X get X Free !! ] ")
-                    print("6. View Smart Coins")
-                    print("7. View Discount Coupons")
-                    print("8. Return/Replacement Product")
-                    print("9. Exit")
+                    # Customer menu options in a table format
+                    customer_menu = [
+                        ["1", "View Profile"],
+                        ["2", "View Products"],
+                        ["3", "Generate Bill"],
+                        ["4", "View Past Bills"],
+                        ["5", "View Offers [Buy X get X Free !!]"],
+                        ["6", "View Smart Coins"],
+                        ["7", "View Discount Coupons"],
+                        ["8", "Return/Replacement Product"],
+                        ["9", "Visualize Your Spending Trends [SMART]"],
+                        ["10", "Exit"]
+                    ]
+                    
+                    # Tabulate customer menu
+                    customer_menu_table = tabulate(customer_menu, headers=["#", "Option"], tablefmt="fancy_grid", stralign="center")
+                    print(colored(customer_menu_table, "magenta"))
 
                     customer_choice = input("Enter your choice: ")
 
                     if customer_choice == "1":
                         print(f"Name: {customer.name}, Phone: {customer.phone}, Smart Coins: {customer.smart_coins}")
                     elif customer_choice == "2":
-                        customer.view_products()  
+                        customer.view_products()
                     elif customer_choice == "3":
                         customer.generate_bill()
                     elif customer_choice == "4":
@@ -768,19 +895,41 @@ def main():
                         customer.view_coupons()
                     elif customer_choice == "8":
                         customer.request_refund_replacement()
-
                     elif customer_choice == "9":
+                        print("\n" + colored("Spending Trends - Select any that you want to view:", "yellow"))
+                        
+                        # Spending trend options in a table format
+                        trend_menu = [
+                            ["1", "View Your Monthly Spendings"],
+                            ["2", "View Category-Wise Spendings"],
+                            ["3", "View Top 5 Purchased Items"]
+                        ]
+                        
+                        # Tabulate spending trend menu
+                        trend_menu_table = tabulate(trend_menu, tablefmt="fancy_grid", stralign="center")
+                        print(colored(trend_menu_table, "cyan"))
+
+                        trend_choice = input("Enter your choice: ")
+
+                        if trend_choice == "1":
+                            customer.view_monthly_spendings()  # Call the method for monthly spendings
+                        elif trend_choice == "2":
+                            customer.view_category_spendings()  # Call the method for category-wise spendings
+                        elif trend_choice == "3":
+                            customer.view_top_purchased_items()  # Call the method for top 5 purchased items
+                        else:
+                            print("Invalid choice. Returning to the main menu.")
+                    elif customer_choice == "10":
                         print("Logging out...")
                         break
                     else:
                         print("Invalid choice. Please try again.")
 
         elif choice == "3":
-            print("Exiting... Goodbye!")
+            print("Exiting the system. Goodbye!")
             break
 
         else:
             print("Invalid choice. Please try again.")
-
 
 main()
