@@ -740,6 +740,28 @@ class Customer:
         plt.show()
 # -----------------------------------------------------------------------------------------------------------------
 
+    # For Monthly Money Spend at store
+    
+    def monthly_spent(self):
+        # Get the month and year input from the user
+        month = input("Enter the month (MM format): ").strip()
+        year = input("Enter the year (YYYY format): ").strip()
+        target_month = f"{year}-{month}"  # Format the target month as YYYY-MM
+
+        # Query to calculate the total spending for the specific customer and month
+        self.cursor.execute("""
+            SELECT SUM(total_spent) AS total_spent
+            FROM monthly_spending
+            WHERE customer_mobile = ? AND bill_date = ?
+            """, (self.phone, target_month))
+        
+        result = self.cursor.fetchone()
+
+        if result and result[0]:
+            print(f"Total spending for {month}/{year}: ₹{result[0]:.2f}")
+        else:
+            print(f"No spending data found for {month}/{year}.")
+# -----------------------------------------------------------------------------------------------------------------  
     # For Ctegory Wise Spending Graph using Matplotlib
     def view_category_spendings(self):
         self.cursor.execute("""
@@ -900,9 +922,10 @@ def main():
                         
                         # Spending trend options in a table format
                         trend_menu = [
-                            ["1", "View Your Monthly Spendings"],
+                            ["1", "View Your Monthly Spendings Graph"],
                             ["2", "View Category-Wise Spendings"],
-                            ["3", "View Top 5 Purchased Items"]
+                            ["3", "View Top 5 Purchased Items"],
+                            ["4", "View Monthly Spent Money at Store"],
                         ]
                         
                         # Tabulate spending trend menu
@@ -917,6 +940,8 @@ def main():
                             customer.view_category_spendings()  # Call the method for category-wise spendings
                         elif trend_choice == "3":
                             customer.view_top_purchased_items()  # Call the method for top 5 purchased items
+                        elif trend_choice=="4":
+                            customer.monthly_spent()  # To view Monthly Spent Money at Store
                         else:
                             print("Invalid choice. Returning to the main menu.")
                     elif customer_choice == "10":
