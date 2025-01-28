@@ -404,49 +404,53 @@ class Customer:
 
 # ***********************************
     # Generate and display the bill
-    def generate_bill(self):
+    def generate_bill(self,predefined_items=None):
         items = []
-        print("\nAdd Items To Your Bill. Type 'stop' when you're done.")
+        items = predefined_items if predefined_items else []  # Include predefined items if passed
+        
 
-        while True:
-            item_name = input("Enter the product name to add to the bill: ").strip()
-            if item_name.lower() == 'stop':
-                break
+        if not predefined_items:
+            print("\nAdd Items To Your Bill. Type 'stop' when you're done.")
+            
+            while True:
+                item_name = input("Enter the product name to add to the bill: ").strip()
+                if item_name.lower() == 'stop':
+                    break
 
-            # Connect to the database to retrieve product details
-            connection = sqlite3.connect(DB_NAME)
-            cursor = connection.cursor()
+                # Connect to the database to retrieve product details
+                connection = sqlite3.connect(DB_NAME)
+                cursor = connection.cursor()
 
-            # Case-insensitive product search
-            cursor.execute("SELECT * FROM products WHERE LOWER(name) = LOWER(?)", (item_name,))
-            product = cursor.fetchone()
+                # Case-insensitive product search
+                cursor.execute("SELECT * FROM products WHERE LOWER(name) = LOWER(?)", (item_name,))
+                product = cursor.fetchone()
 
-            if product:
-                product_name = product[1]  
-                price = product[3]         
-                stock = int(product[4])      
+                if product:
+                    product_name = product[1]  
+                    price = product[3]         
+                    stock = int(product[4])      
 
-                if stock > 0:
-                    quantity = int(input(f"Enter the quantity of {product_name} to add: "))
+                    if stock > 0:
+                        quantity = int(input(f"Enter the quantity of {product_name} to add: "))
 
-                    if quantity <= stock:
-                        # Add product to the bill
-                        items.append({'name': product_name, 'quantity': quantity, 'price': price})
+                        if quantity <= stock:
+                            # Add product to the bill
+                            items.append({'name': product_name, 'quantity': quantity, 'price': price})
 
-                        # Update stock in the database
-                        cursor.execute(
-                            "UPDATE products SET stock = stock - ? WHERE LOWER(name) = LOWER(?)",
-                            (quantity, item_name)
-                        )
-                        connection.commit()
+                            # Update stock in the database
+                            cursor.execute(
+                                "UPDATE products SET stock = stock - ? WHERE LOWER(name) = LOWER(?)",
+                                (quantity, item_name)
+                            )
+                            connection.commit()
 
-                        print(f"'{product_name}' added to the bill. Quantity: {quantity}, Price per unit: {price}")
+                            print(f"'{product_name}' added to the bill. Quantity: {quantity}, Price per unit: {price}")
+                        else:
+                            print(f"Only {stock} units of '{product_name}' are available.")
                     else:
-                        print(f"Only {stock} units of '{product_name}' are available.")
+                        print(f"'{product_name}' is out of stock.")
                 else:
-                    print(f"'{product_name}' is out of stock.")
-            else:
-                print("Product not available.")
+                    print("Product not available.")
 
             
 
@@ -835,8 +839,69 @@ class Customer:
         # Explicitly force the graph to handle larger values if needed
         plt.tight_layout()
         plt.show()
+        
 
 # -----------------------------------------------------------------------------------------------------------------
+
+    def select_recipe_ingredients(self):
+    # Hardcoded recipes with associated products and predefined quantities
+        recipes = {
+            "Pasta Night": [("Milk (1L)", 1), ("Butter (500g)", 1)]
+            # "Indian Feast": [("Basmati Rice", 1), ("Lentils", 1), ("Spices", 1), ("Paneer", 1), ("Naan", 2)],
+            # "Healthy Breakfast": [("Oats", 1), ("Honey", 1), ("Bananas", 6), ("Milk", 1)],
+        }
+
+        print("\nAvailable Recipes:")
+        for i, recipe in enumerate(recipes.keys(), 1):
+            print(f"{i}. {recipe}")
+
+        try:
+            recipe_choice = int(input("\nSelect a recipe (Enter number): "))
+            selected_recipe = list(recipes.keys())[recipe_choice - 1]
+        except (ValueError, IndexError):
+            print("Invalid choice. Returning to Smart Shopping Assistant.")
+            return
+
+        # Fetch required products for the selected recipe
+        required_products = recipes[selected_recipe]
+
+        # Check inventory for availability
+        connection = sqlite3.connect(DB_NAME)
+        cursor = connection.cursor()
+
+        available_products = []
+        for product, quantity in required_products:
+            cursor.execute("SELECT * FROM products WHERE LOWER(name) = LOWER(?) AND stock >= ?", (product, quantity))
+            result = cursor.fetchone()
+            if result:
+                available_products.append({
+                    "name": result[1],  # Product name
+                    "price": result[3],  # Product price
+                    "stock": result[4],  # Stock available
+                    "quantity_required": quantity,  # Quantity required
+                })
+
+        connection.close()
+
+        if not available_products:
+            print(f"Sorry, ingredients for '{selected_recipe}' are unavailable in inventory.")
+            return
+
+        print(f"\nIngredients available for '{selected_recipe}':")
+        for product in available_products:
+            print(f"{product['name']} - Price: ₹{product['price']} - Stock: {product['stock']} - Required: {product['quantity_required']}")
+
+        # Ask user if they want to purchase the items
+        confirm = input("\nDo you want to purchase these items? (yes/no): ").strip().lower()
+        if confirm == "yes":
+            # Add the available products to the bill
+            print("\nAdding items to the bill...\n")
+            for item in available_products:
+                Customer.generate_bill(name=item['name'], quantity=item['quantity_required']) #HERE IS PROBLEM IN CODE THAT PRODUCTS ARE NOT GOING IN GENERATE_BILL items,quantity 
+        else:
+            print("Returning to Smart Shopping Assistant.")
+
+        self.connection.commit()
 # -----------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------------------------
         
@@ -892,7 +957,8 @@ def main():
                         ["7", "View Discount Coupons"],
                         ["8", "Return/Replacement Product"],
                         ["9", "Visualize Your Spending Trends [SMART]"],
-                        ["10", "Exit"]
+                        ["10","SMART ~~ Shopping Assistant ~~ "],
+                        ["11", "Exit"]
                     ]
                     
                     # Tabulate customer menu
@@ -944,7 +1010,36 @@ def main():
                             customer.monthly_spent()  # To view Monthly Spent Money at Store
                         else:
                             print("Invalid choice. Returning to the main menu.")
+
                     elif customer_choice == "10":
+                            print("\n" + colored("Smart ~~Shopping Assistant~~ ", "yellow"))
+
+                            # Smart shopping assistant options in a table format
+                            assistant_menu = [
+                                ["1", "Are you planning to cook something special? Select your products according to Recipe Ingredients !"],
+                                ["2", "Are you going on a trip ? Let us help you pack your travel essentials!"],
+                                ["3", "Go Back to Main Menu"],
+                            ]
+
+                            # Tabulate the assistant menu
+                            assistant_menu_table = tabulate(assistant_menu, tablefmt="fancy_grid", stralign="center")
+                            print(colored(assistant_menu_table, "cyan"))
+
+                            # Get user input for assistant submenu
+                            assistant_choice = input("\nEnter your choice: ").strip()
+
+                            if assistant_choice == "1":
+                                customer.select_recipe_ingredients()
+                            elif assistant_choice == "2":
+                                customer.select_travel_essentials()
+                            elif assistant_choice == "3":
+                                print("\nReturning to Main Menu...")
+                            else:
+                                print(colored("Invalid option. Please try again.", "red"))
+                        
+
+
+                    elif customer_choice == "11":
                         print("Logging out...")
                         break
                     else:
