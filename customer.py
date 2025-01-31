@@ -406,6 +406,7 @@ class Customer:
     # Generate and display the bill
     def generate_bill(self,predefined_items=None):
         items = []
+        discount = 0  # Initialize discount
         items = predefined_items if predefined_items else []  # Include predefined items if passed
         
 
@@ -455,13 +456,19 @@ class Customer:
 
             
 
-        # Display bill summary
+        # Display bill summary using tabulate
         print("\nBill Summary:")
         total_amount = 0
+        table_data = []
+
         for item in items:
             item_total = item['price'] * item['quantity']
             total_amount += item_total
-            print(f"Product: {item['name']}, Quantity: {item['quantity']}, Price: {item['price']}, Subtotal: {item_total}")
+            table_data.append([item['name'], item['quantity'], item['price'], item_total])
+
+        # Print the table
+        headers = ["Product", "Quantity", "Price", "Subtotal"]
+        print(tabulate(table_data, headers=headers, tablefmt="pretty"))
 
         print(f"\nTotal Amount before discounts: {total_amount}")
 
@@ -520,7 +527,7 @@ class Customer:
             )
             coupon = cursor.fetchone()
 
-            discount = 0  # Initialize discount
+            
 
             if coupon:
                 coupon_category, discount_percentage = coupon
@@ -572,26 +579,45 @@ class Customer:
                 cursor.connection.commit()  # Commit the changes to the database
                 
                 # Apply the discount for the redeemed coins
-                discount += redeem_coins
-                print(f"Your {redeem_coins} Smart Coins have been redeemed. ₹{redeem_coins} has been deducted from your bill.")
+                if redeem_coins > 0:
+                    print(f"Your {redeem_coins} Smart Coins will be redeemed for a discount.")
+                    discount += redeem_coins  # Add the redeemed coins value to the discount
+                else:
+                    print("No Smart Coins redeemed.")
+
+                # Continue with the rest of the code...
+                print(f"Total discount applied: {discount}")
 
         # Apply GST (Assuming 18% GST for this example)
         gst = total_amount * 0.18
         final_amount = total_amount - discount + gst
         new_smart_coins = final_amount * 0.05  # 5% of final amount
 
-        print("\nFinal Bill Summary:")
-        print("-" * 40)
-        print("Product Name | Quantity | Price | Total")
+        
+        # Prepare the table data for items
+        table_data = []
         for item in items:
-            print(f"{item['name']} | {item['quantity']} | {item['price']} | {item['price'] * item['quantity']}")
-        print("-" * 40)
-        print(f"Total Amount: {total_amount}")
-        print(f"Discount Applied: {discount}")
-        print(f"GST (18%): {gst}")
-        print(f"Final Amount: {final_amount}")
-        print(f"New Smart Coins Earned: {new_smart_coins}")
-        print("-" * 40)
+            item_total = item['price'] * item['quantity']
+            table_data.append([item['name'], item['quantity'], item['price'], item_total])
+
+        # Headers for the table
+        headers = ["Product Name", "Quantity", "Price", "Total"]
+
+        # Display the table for the items
+        print("\nFinal Bill Summary:")
+        print(tabulate(table_data, headers=headers, tablefmt="fancy_grid"))
+
+        # Now print the totals, discount, GST, etc. as a part of the table
+        summary = [
+            ["Total Amount", total_amount],
+            ["Discount Applied", discount],
+            ["GST (18%)", gst],
+            ["Final Amount", final_amount],
+            ["New Smart Coins Earned", new_smart_coins]
+        ]
+
+        # Print the summary as a separate table
+        print(tabulate(summary, headers=["Description", "Amount"], tablefmt="fancy_grid"))
 
         # Ask if user wants to save the bill
         save_option = input("Do you want to save this bill? (yes/no): ").lower()
