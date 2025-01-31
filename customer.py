@@ -427,6 +427,7 @@ class Customer:
 
                 if product:
                     product_name = product[1]  
+                    cat=product[2]
                     price = product[3]         
                     stock = int(product[4])      
 
@@ -435,7 +436,7 @@ class Customer:
 
                         if quantity <= stock:
                             # Add product to the bill
-                            items.append({'name': product_name, 'quantity': quantity, 'price': price})
+                            items.append({'name': product_name, 'quantity': quantity, 'price': price,'category':cat})
 
                             # Update stock in the database
                             cursor.execute(
@@ -507,23 +508,48 @@ class Customer:
             connection.commit()
 
         # Ask user if they want to apply a coupon
-        coupon_code = input("Enter Coupon Code (if any or press Enter to skip): ")
+        coupon_code = input("Enter Coupon Code (if any or press Enter to skip): ").strip()
         if coupon_code:
             connection = sqlite3.connect(DB_NAME)
             cursor = connection.cursor()
-            cursor.execute("SELECT discount_percentage FROM discount_coupons WHERE coupon_code = ? AND expiry_date >= ?", 
-            (coupon_code, get_current_date()))
+
+            # Fetch coupon details
+            cursor.execute(
+                "SELECT category, discount_percentage FROM discount_coupons WHERE coupon_code = ? AND expiry_date >= ?",
+                (coupon_code, get_current_date())
+            )
             coupon = cursor.fetchone()
-            connection.commit()
+
+            discount = 0  # Initialize discount
 
             if coupon:
-                discount += total_amount * (coupon[0] / 100)
-                print(f"Hurray! You got {coupon[0]}% discount using coupon code {coupon_code}.")
+                coupon_category, discount_percentage = coupon
+
+                # Convert category to lowercase and strip spaces for accurate comparison
+                coupon_category = coupon_category.strip().lower()
+
+                # Calculate total amount for the applicable category
+                category_total = sum(
+                    it['price'] * it['quantity']
+                    for it in items
+                    if it.get('category', '').strip().lower() == coupon_category
+                )
+
+                if category_total > 0:
+                    discount = category_total * (discount_percentage / 100)
+                    print(f"Hurray! You got {discount_percentage}% discount on {coupon_category} items, saving ₹{discount:.2f}.")
+                else:
+                    print(f"Coupon not applicable. No items from category '{coupon_category}' found in your purchase.")
             else:
                 print("Invalid or expired coupon code.")
 
-        discount = 0
-        # Ask if user wants to redeem Smart Coins
+            # Deduct discount only from the category's total amount
+            total_amount -= discount  
+
+
+            
+
+        
         # Ask if the user wants to redeem Smart Coins
         if self.smart_coins > 0:
             self.view_smart_coins()
