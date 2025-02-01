@@ -896,11 +896,9 @@ class Customer:
 # -----------------------------------------------------------------------------------------------------------------
 
     def select_recipe_ingredients(self):
-    # Hardcoded recipes with associated products and predefined quantities
+        # Hardcoded recipes with associated products and predefined quantities
         recipes = {
             "Pasta Night": [("Milk (1L)", 1), ("Butter (500g)", 1)]
-            # "Indian Feast": [("Basmati Rice", 1), ("Lentils", 1), ("Spices", 1), ("Paneer", 1), ("Naan", 2)],
-            # "Healthy Breakfast": [("Oats", 1), ("Honey", 1), ("Bananas", 6), ("Milk", 1)],
         }
 
         print("\nAvailable Recipes:")
@@ -948,12 +946,20 @@ class Customer:
         if confirm == "yes":
             # Add the available products to the bill
             print("\nAdding items to the bill...\n")
-            for item in available_products:
-                Customer.generate_bill(name=item['name'], quantity=item['quantity_required']) #HERE IS PROBLEM IN CODE THAT PRODUCTS ARE NOT GOING IN GENERATE_BILL items,quantity 
+            self.generate_bill(predefined_items=[
+                {
+                    "name": item["name"],
+                    "quantity": item["quantity_required"],  # FIX: Use 'quantity_required' as 'quantity'
+                    "price": item["price"]
+                } 
+                for item in available_products
+            ])
         else:
             print("Returning to Smart Shopping Assistant.")
 
-        self.connection.commit()
+        
+        connection.close()
+
 # -----------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------------------------
         
