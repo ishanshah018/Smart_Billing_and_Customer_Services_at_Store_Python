@@ -898,12 +898,26 @@ class Customer:
     def select_recipe_ingredients(self):
         # Hardcoded recipes with associated products and predefined quantities
         recipes = {
-            "Pasta Night": [("Milk (1L)", 1), ("Butter (500g)", 1)]
-        }
+        "Cheesy Delight": [("Cheddar Cheese (200g)", 1), ("Mozzarella Cheese (200g)", 1)],
+        "Healthy Breakfast": [("Greek Yogurt (100g)", 2), ("Granola Bars (100g)", 2)],
+        "Fruit Mix": [("Apples (1kg)", 1), ("Bananas (1kg)", 1), ("Oranges (1kg)", 1)],
+        "Bakery Special": [("Whole Wheat Bread (500g)", 1), ("Muffins (Pack of 6)", 1)],
+        "Movie Night": [("Popcorn (Microwave Pack)", 2), ("Chocolate Bars (100g)", 2)],
+        "Tea Time": [("Black Tea (20 bags)", 1), ("Cookies (200g)", 2)],
+        "Vegetable Feast": [("Tomatoes (1kg)", 1), ("Onions (1kg)", 1), ("Spinach (500g)", 1)],
+        "Smoothie Booster": [("Mangoes (1kg)", 1), ("Blueberries (250g)", 1), ("Yogurt (Plain, 1kg)", 1)],
+        "Energy Pack": [("Energy Bars (50g)", 2), ("Protein Shake (500ml)", 1)]
+    }
+
+        recipe_table = [[i, recipe] for i, recipe in enumerate(recipes.keys(), 1)]
 
         print("\nAvailable Recipes:")
-        for i, recipe in enumerate(recipes.keys(), 1):
-            print(f"{i}. {recipe}")
+
+        # Format and display the table with fully enclosed lines
+        recipe_table = [[colored(i, "cyan"), colored(recipe, "yellow")] for i, recipe in enumerate(recipes.keys(), 1)]
+        headers = [colored("No.", "green"), colored("Recipe Name", "green")]
+
+        print(tabulate(recipe_table, headers=headers, tablefmt="double_grid"))
 
         try:
             recipe_choice = int(input("\nSelect a recipe (Enter number): "))
@@ -937,9 +951,100 @@ class Customer:
             print(f"Sorry, ingredients for '{selected_recipe}' are unavailable in inventory.")
             return
 
+        # Display the ingredients in a table format
         print(f"\nIngredients available for '{selected_recipe}':")
-        for product in available_products:
-            print(f"{product['name']} - Price: ₹{product['price']} - Stock: {product['stock']} - Required: {product['quantity_required']}")
+        ingredient_table = [
+            [product['name'], f"₹{product['price']}", product['stock'], product['quantity_required']]
+            for product in available_products
+        ]
+
+        # Print the table
+        print(tabulate(ingredient_table, headers=["Ingredient", "Price", "Stock", "Required"], tablefmt="fancy_grid"))
+
+        # Ask user if they want to purchase the items
+        confirm = input("\nDo you want to purchase these items? (yes/no): ").strip().lower()
+        if confirm == "yes":
+            # Add the available products to the bill
+            print("\nAdding items to the bill...\n")
+            self.generate_bill(predefined_items=[
+                {
+                    "name": item["name"],
+                    "quantity": item["quantity_required"],  # FIX: Use 'quantity_required' as 'quantity'
+                    "price": item["price"]
+                } 
+                for item in available_products
+            ])
+        else:
+            print("Returning to Smart Shopping Assistant.")
+
+
+# -----------------------------------------------------------------------------------------------------------------
+
+    def select_travel_essentials(self):
+        items = {
+        "Going for Hiking": [("Hiking Boots (1 pair)", 1), ("Backpack (1pc)", 1), ("Tent Light (1pc)", 1)],
+        "Camping Essentials": [("Camping Tent (1pc)", 1), ("Sleeping Bag (1pc)", 1), ("Camping Lantern (1pc)", 1)],
+        "Beach Trip": [("Beach Towel (1pc)", 1), ("Sunglasses (1pc)", 1), ("Beach Umbrella (1pc)", 1)],
+        "Mountain Adventure": [("Hiking Boots (1 pair)", 1), ("Cycling Helmet (1pc)", 1), ("Water Bottle (1pc)", 1)],
+        "Road Trip": [("Shampoo (500ml)", 1), ("Toothbrush (Pack of 2)", 1), ("Charging Cable (1pc)", 1)],
+        "Safari Expedition": [("Safari Hat (1pc)", 1), ("Binoculars (1pc)", 1), ("Shaving Razor (Pack of 3)", 1)],
+        "Trekking Trip": [("Camping Tent (1pc)", 1), ("Trekking Poles (1 pair)", 1), ("Backpack (1pc)", 1)],
+        "Winter Vacation": [("Shampoo (500ml)", 1), ("Deodorant (150ml)", 1), ("Boots (1 pair)", 1)],
+        "Outdoor Exploration": [("Water Bottle (1pc)", 1), ("Sunscreen (100ml)", 1), ("Climbing Gear Set (1 set)", 1)],
+        "Fishing Trip": [("Fishing Rod (1pc)", 1), ("Tent Light (1pc)", 1), ("Backpack (1pc)", 1)]
+    }
+
+        item_table = [[i, item] for i, item in enumerate(items.keys(), 1)]
+
+        print("Select any where u are going !!:")
+
+        # Format and display the table with fully enclosed lines
+        recipe_table = [[colored(i, "cyan"), colored(item, "yellow")] for i, item in enumerate(items.keys(), 1)]
+        headers = [colored("No.", "green"), colored("Items Name", "green")]
+
+        print(tabulate(recipe_table, headers=headers, tablefmt="double_grid"))
+
+        try:
+            item_choice = int(input("\nSelect a Travel (Enter number): "))
+            selected_item = list(items.keys())[item_choice - 1]
+        except (ValueError, IndexError):
+            print("Invalid choice. Returning to Smart Shopping Assistant.")
+            return
+
+        # Fetch required products for the selected recipe
+        required_products = items[selected_item]
+
+        # Check inventory for availability
+        connection = sqlite3.connect(DB_NAME)
+        cursor = connection.cursor()
+
+        available_products = []
+        for product, quantity in required_products:
+            cursor.execute("SELECT * FROM products WHERE LOWER(name) = LOWER(?) AND stock >= ?", (product, quantity))
+            result = cursor.fetchone()
+            if result:
+                available_products.append({
+                    "name": result[1],  # Product name
+                    "price": result[3],  # Product price
+                    "stock": result[4],  # Stock available
+                    "quantity_required": quantity,  # Quantity required
+                })
+
+        connection.close()
+
+        if not available_products:
+            print(f"Sorry, items for '{selected_item}' are unavailable in inventory.")
+            return
+
+        # Display the ingredients in a table format
+        print(f"Items You need to Purchase for '{selected_item}':")
+        item_table = [
+            [product['name'], f"₹{product['price']}", product['stock'], product['quantity_required']]
+            for product in available_products
+        ]
+
+        # Print the table
+        print(tabulate(item_table, headers=["Items", "Price", "Stock", "Required"], tablefmt="fancy_grid"))
 
         # Ask user if they want to purchase the items
         confirm = input("\nDo you want to purchase these items? (yes/no): ").strip().lower()
@@ -958,11 +1063,100 @@ class Customer:
             print("Returning to Smart Shopping Assistant.")
 
         
+# -----------------------------------------------------------------------------------------------------------------
+    def select_home_essentials(self):
+        home = {
+        "Cleaning Supplies": [("Dish Soap (500ml)", 1), ("Laundry Detergent (1L)", 1), ("Multipurpose Cleaner (500ml)", 1), 
+                            ("Glass Cleaner (500ml)", 1), ("Toilet Cleaner (500ml)", 1), ("Disinfectant Spray (500ml)", 1), 
+                            ("Sponges (Pack of 6)", 1), ("Trash Bags (Pack of 20)", 1)],
+
+        "Bathroom Essentials": [("Toilet Paper (Pack of 6)", 1), ("Paper Towels (Pack of 2)", 1), ("Hand Wash (500ml)", 1), 
+                                ("Air Freshener (300ml)", 1), ("Shower Curtain (1pc)", 1), ("Bath Mat (1pc)", 1), 
+                                ("Towels (Set of 2)", 1)],
+
+        "Kitchen Necessities": [("Dishwasher Tablets (Pack of 20)", 1), ("Kitchen Wipes (Pack of 20)", 1), ("Oven Cleaner (500ml)", 1), 
+                                ("Food Storage Containers (Set of 3)", 1), ("Baking Paper (Roll)", 1), ("Cloth Napkins (Set of 4)", 1), 
+                                ("Microwave-Safe Bowls (Set of 3)", 1)],
+
+        "Laundry & Fabric Care": [("Laundry Detergent (1L)", 1), ("Fabric Softener (1L)", 1), ("Iron (1pc)", 1), 
+                                ("Clothes Drying Rack (1pc)", 1), ("Lint Roller (1pc)", 1), ("Washing Machine Cleaner (500g)", 1), 
+                                ("Stain Remover (500ml)", 1)],
+
+        "Home Maintenance": [("Broom (1pc)", 1), ("Mop (1pc)", 1), ("Furniture Polish (500ml)", 1), ("Scented Candles (Pack of 3)", 1), 
+                            ("Batteries (Pack of 4)", 1), ("Lamps (1pc)", 1), ("Doormat (1pc)", 1)]
+    }
+
+        recipe_table = [[i, hm] for i, hm in enumerate(home.keys(), 1)]
+
+        print("Select any Home Essentials :")
+
+        # Format and display the table with fully enclosed lines
+        home_table = [[colored(i, "cyan"), colored(product, "yellow")] for i, product in enumerate(home.keys(), 1)]
+        headers = [colored("No.", "green"), colored("Products Name", "green")]
+
+        print(tabulate(home_table, headers=headers, tablefmt="double_grid"))
+
+        try:
+            item_choice = int(input("\nSelect any Essentials (Enter number): "))
+            selected_item = list(home.keys())[item_choice - 1]
+        except (ValueError, IndexError):
+            print("Invalid choice. Returning to Smart Shopping Assistant.")
+            return
+
+        # Fetch required products for the selected recipe
+        required_products = home[selected_item]
+
+        # Check inventory for availability
+        connection = sqlite3.connect(DB_NAME)
+        cursor = connection.cursor()
+
+        available_products = []
+        for product, quantity in required_products:
+            cursor.execute("SELECT * FROM products WHERE LOWER(name) = LOWER(?) AND stock >= ?", (product, quantity))
+            result = cursor.fetchone()
+            if result:
+                available_products.append({
+                    "name": result[1],  # Product name
+                    "price": result[3],  # Product price
+                    "stock": result[4],  # Stock available
+                    "quantity_required": quantity,  # Quantity required
+                })
+
         connection.close()
 
+        if not available_products:
+            print(f"Sorry, items for '{selected_item}' are unavailable in inventory.")
+            return
+
+        # Display the ingredients in a table format
+        print(f"products You need to Purchase for '{selected_item}':")
+        item_table = [
+            [product['name'], f"₹{product['price']}", product['stock'], product['quantity_required']]
+            for product in available_products
+        ]
+
+        # Print the table
+        print(tabulate(item_table, headers=["Products", "Price", "Stock", "Required"], tablefmt="fancy_grid"))
+
+        # Ask user if they want to purchase the items
+        confirm = input("\nDo you want to purchase these Products? (yes/no): ").strip().lower()
+        if confirm == "yes":
+            # Add the available products to the bill
+            print("\nAdding items to the bill...\n")
+            self.generate_bill(predefined_items=[
+                {
+                    "name": item["name"],
+                    "quantity": item["quantity_required"],  # FIX: Use 'quantity_required' as 'quantity'
+                    "price": item["price"]
+                } 
+                for item in available_products
+            ])
+        else:
+            print("Returning to Smart Shopping Assistant.")
+    
+
 # -----------------------------------------------------------------------------------------------------------------
-# -----------------------------------------------------------------------------------------------------------------
-        
+# -----------------------------------------------------------------------------------------------------------------       
 
 # Main Function
 
@@ -1074,9 +1268,10 @@ def main():
 
                             # Smart shopping assistant options in a table format
                             assistant_menu = [
-                                ["1", "Are you planning to cook something special? Select your products according to Recipe Ingredients !"],
+                                ["1", "Are you planning to cook something special? \n Select your products according to Recipe Ingredients !"],
                                 ["2", "Are you going on a trip ? Let us help you pack your travel essentials!"],
-                                ["3", "Go Back to Main Menu"],
+                                ["3", "Home Essentials"],
+                                ["4", "Go Back to Main Menu"],
                             ]
 
                             # Tabulate the assistant menu
@@ -1090,7 +1285,9 @@ def main():
                                 customer.select_recipe_ingredients()
                             elif assistant_choice == "2":
                                 customer.select_travel_essentials()
-                            elif assistant_choice == "3":
+                            elif assistant_choice=="3":
+                                customer.select_home_essentials()
+                            elif assistant_choice == "4":
                                 print("\nReturning to Main Menu...")
                             else:
                                 print(colored("Invalid option. Please try again.", "red"))
