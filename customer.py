@@ -26,7 +26,7 @@ class Customer:
         self.smart_coins = smart_coins
 
         # Database connection and cursor initialization
-        self.connection = sqlite3.connect(DB_NAME)  # Replace with your actual database name
+        self.connection = sqlite3.connect(DB_NAME) 
         self.cursor = self.connection.cursor()
         
 

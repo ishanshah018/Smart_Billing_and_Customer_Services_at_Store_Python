@@ -99,3 +99,11 @@ DELETE FROM item_purchase_history;
 DELETE FROM category_spending;
 DELETE FROM bills;
 DELETE FROM returned_products
+
+
+-- ------------------------------MANAGER----------------------------
+CREATE TABLE manager (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL
+);
