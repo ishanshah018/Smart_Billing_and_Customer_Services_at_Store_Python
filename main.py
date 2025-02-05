@@ -42,7 +42,7 @@ while True:
     
     if choice == '1':
         print(colored("\nRedirecting to the Store Manager section...", "green"))
-        os.system("python store_manager.py")  
+        os.system("python ./store_manager.py")  
     
     elif choice == '2':
         print(colored("\nRedirecting to the Customer section...", "green"))

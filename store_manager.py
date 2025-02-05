@@ -17,13 +17,15 @@ def get_current_date():
 def get_current_month():
     return datetime.now().strftime("%Y-%m")  # Returns the current month in 'YYYY-MM' format
 
-
+# -----------------------------------------------------------------------------------------------------------------
 
 
 class StoreManager:
     def __init__(self,username,password):
         self.username = username
         self.password = password
+        self.connection = sqlite3.connect(DB_NAME)
+        self.cursor = self.connection.cursor()
 
     @staticmethod
 
@@ -42,12 +44,26 @@ class StoreManager:
             print(colored(f"\n{'Invalid login credentials. Please try again.':^50}", "red", attrs=["bold"]))
             print(colored(border, "red"))
             return None
-    
+# -----------------------------------------------------------------------------------------------------------------    
     def view_products_inventory(self):
-        pass
-    
+        connection = sqlite3.connect(DB_NAME)
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM products")
+        products = cursor.fetchall()
+        
+
+        if products:
+            headers = ["ID", "Name", "Category", "Price", "Stock"]
+            
+            # Print the products in an attractive table format with enhanced styling
+            print("\nAvailable Products:")
+            print(tabulate(products, headers=headers, tablefmt="fancy_grid", numalign="center", stralign="center"))
+        else:
+            print("No products available.")    
+        
+# -----------------------------------------------------------------------------------------------------------------    
+
     def view_sales_report(self):
-        """View sales report with options for daily, monthly, and yearly sales."""
         print("1. View Daily Sales")
         print("2. View Monthly Sales")
         print("3. View Yearly Sales")
@@ -61,18 +77,118 @@ class StoreManager:
             self.yearly_sales()
         else:
             print("Invalid choice.")
-    
+
     def daily_sales(self):
-        """View daily sales report."""
-        pass
-    
+        # Get today's date in DD-MM-YYYY format
+        today = datetime.now().strftime("%d-%m-%Y")
+
+        # Query to get total sales for each bill date (grouped by day)
+        self.cursor.execute("""
+            SELECT bill_date, SUM(total_spent) AS total_sales
+            FROM monthly_spending
+            WHERE bill_date = ?
+            GROUP BY bill_date
+        """, (today,))
+
+        results = self.cursor.fetchall()
+
+        if not results:
+            print(f"No sales data found for {today}.")
+            return
+
+        dates = [row[0] for row in results]
+        total_sales = [row[1] for row in results]
+
+        # Plotting
+        plt.figure(figsize=(10, 6))
+        plt.bar(dates, total_sales, color='skyblue')
+        plt.title(f"Daily Sales Report ({today})", fontsize=16)
+        plt.xlabel("Date", fontsize=12)
+        plt.ylabel("Total Sales (₹)", fontsize=12)
+        plt.xticks(rotation=45)
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        plt.show()
+
     def monthly_sales(self):
-        """View monthly sales report."""
-        pass
-    
+        # Get current month and year
+        current_month = datetime.now().strftime("%m")
+        current_year = datetime.now().strftime("%Y")
+
+        # Query to get total sales for each day in the current month
+        self.cursor.execute("""
+            SELECT SUBSTR(bill_date, 1, 2) AS day, SUM(total_spent) AS total_sales
+            FROM monthly_spending
+            WHERE SUBSTR(bill_date, 4, 2) = ?  -- Extract MM from DD-MM-YYYY
+            AND SUBSTR(bill_date, 7, 4) = ?  -- Extract YYYY from DD-MM-YYYY
+            GROUP BY day
+        """, (current_month, current_year))
+
+        results = self.cursor.fetchall()
+
+        if not results:
+            print(f"No sales data found for {datetime.now().strftime('%B %Y')}.")
+            return
+
+        days = [int(row[0]) for row in results]  # Convert day to integer for sorting
+        total_sales = [row[1] for row in results]
+
+        # Sorting to maintain correct order of dates
+        days, total_sales = zip(*sorted(zip(days, total_sales)))
+
+        # Plotting
+        plt.figure(figsize=(10, 6))
+        plt.plot(days, total_sales, marker='o', linestyle='-', color='blue')
+        plt.title(f"Monthly Sales Report ({datetime.now().strftime('%B %Y')})", fontsize=16)
+        plt.xlabel("Day", fontsize=12)
+        plt.ylabel("Total Sales (₹)", fontsize=12)
+        plt.xticks(days)
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        plt.show()
+
     def yearly_sales(self):
         """View yearly sales report."""
-        pass
+        # Get current year
+        current_year = datetime.now().strftime("%Y")
+
+        # Query to get total sales for each month in the current year
+        self.cursor.execute("""
+            SELECT SUBSTR(bill_date, 4, 2) AS month, SUM(total_spent) AS total_sales
+            FROM monthly_spending
+            WHERE SUBSTR(bill_date, 7, 4) = ?  -- Extract YYYY from DD-MM-YYYY
+            GROUP BY month
+        """, (current_year,))
+
+        results = self.cursor.fetchall()
+
+        if not results:
+            print(f"No sales data found for {current_year}.")
+            return
+
+        months = [int(row[0]) for row in results]  # Convert month to integer for sorting
+        total_sales = [row[1] for row in results]
+
+        # Sorting to maintain correct order of months
+        months, total_sales = zip(*sorted(zip(months, total_sales)))
+
+        # Month labels
+        month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        month_labels = [month_labels[m-1] for m in months]  # Convert numeric month to name
+
+        # Plotting
+        plt.figure(figsize=(10, 6))
+        plt.bar(month_labels, total_sales, color='green')
+        plt.title(f"Yearly Sales Report ({current_year})", fontsize=16)
+        plt.xlabel("Month", fontsize=12)
+        plt.ylabel("Total Sales (₹)", fontsize=12)
+        plt.xticks(rotation=45)
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        plt.show()
+
+# ----------------------------------------------------------------------------------------------------
+
     
     def send_promotional_mail_to_customers(self):
         """Send promotional emails to customers."""
@@ -91,7 +207,7 @@ class StoreManager:
         pass
 
     
-
+# ----------------------------------------------------------------------------------------------------
 #---------------------------------Main Function------------------------------------------------------- 
 def main():
     while True:

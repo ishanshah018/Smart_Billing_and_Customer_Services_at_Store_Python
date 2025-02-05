@@ -15,7 +15,7 @@ def get_current_date():
 
 # Helper functions for Fetching Current Month
 def get_current_month():
-    return datetime.now().strftime("%Y-%m")  # Returns the current month in 'YYYY-MM' format
+    return datetime.now().strftime("%d-%m-%Y") # Returns the current month in 'DD-MM-YYYY' format
 
 # Customer Class
 class Customer:
@@ -718,8 +718,6 @@ class Customer:
                 connection.commit()  # Commit after insert
 
                 # Update the item_purchase_history table to track purchased items
-
-                # Update the item_purchase_history table to track purchased items
                 cursor.execute("""
                     INSERT INTO item_purchase_history (customer_mobile, item_name, quantity, bill_id, price)
                     VALUES (?, ?, ?, ?, ?)
@@ -769,16 +767,24 @@ class Customer:
     # For Monthly Spendings Graph using Matplotlib
 
     def view_monthly_spendings(self):
+        # Get current month and year
+        current_month = datetime.now().strftime("%m")  # Extract MM
+        current_year = datetime.now().strftime("%Y")  # Extract YYYY
+
+        # Query to fetch spending for the current month and year
         self.cursor.execute("""
             SELECT category, SUM(total_spent) AS total_spent
             FROM monthly_spending
             WHERE customer_mobile = ?
+            AND SUBSTR(bill_date, 4, 2) = ?  -- Extract MM from DD-MM-YYYY
+            AND SUBSTR(bill_date, 7, 4) = ?  -- Extract YYYY from DD-MM-YYYY
             GROUP BY category
-            """, (self.phone,))
+        """, (self.phone, current_month, current_year))
+
         results = self.cursor.fetchall()
 
         if not results:
-            print("No monthly spending data found.")
+            print(f"No spending data found for {datetime.now().strftime('%B %Y')}.")
             return
 
         categories = [row[0] for row in results]
@@ -802,15 +808,16 @@ class Customer:
         # Get the month and year input from the user
         month = input("Enter the month (MM format): ").strip()
         year = input("Enter the year (YYYY format): ").strip()
-        target_month = f"{year}-{month}"  # Format the target month as YYYY-MM
 
         # Query to calculate the total spending for the specific customer and month
         self.cursor.execute("""
             SELECT SUM(total_spent) AS total_spent
             FROM monthly_spending
-            WHERE customer_mobile = ? AND bill_date = ?
-            """, (self.phone, target_month))
-        
+            WHERE customer_mobile = ?
+            AND SUBSTR(bill_date, 4, 2) = ?  -- Extracts MM from DD-MM-YYYY
+            AND SUBSTR(bill_date, 7, 4) = ?  -- Extracts YYYY from DD-MM-YYYY
+        """, (self.phone, month, year))
+
         result = self.cursor.fetchone()
 
         if result and result[0]:
