@@ -64,7 +64,7 @@ class StoreManager:
 # -----------------------------------------------------------------------------------------------------------------    
 
     def view_sales_report(self):
-        print("1. View Daily Sales")
+        print("1. View Today's Sales")
         print("2. View Monthly Sales")
         print("3. View Yearly Sales")
         choice = input("Enter your choice: ")
@@ -82,33 +82,28 @@ class StoreManager:
         # Get today's date in DD-MM-YYYY format
         today = datetime.now().strftime("%d-%m-%Y")
 
-        # Query to get total sales for each bill date (grouped by day)
+        # Query to get total sales for today
         self.cursor.execute("""
-            SELECT bill_date, SUM(total_spent) AS total_sales
+            SELECT SUM(total_spent) AS total_sales
             FROM monthly_spending
             WHERE bill_date = ?
-            GROUP BY bill_date
         """, (today,))
 
-        results = self.cursor.fetchall()
+        result = self.cursor.fetchone()
 
-        if not results:
-            print(f"No sales data found for {today}.")
+        if not result or result[0] is None:
+            print(f"\n🛒 Daily Sales Report ({today}) 🛒\n")
+            print("No sales data found for today.\n")
             return
 
-        dates = [row[0] for row in results]
-        total_sales = [row[1] for row in results]
+        total_sales = result[0]
 
-        # Plotting
-        plt.figure(figsize=(10, 6))
-        plt.bar(dates, total_sales, color='skyblue')
-        plt.title(f"Daily Sales Report ({today})", fontsize=16)
-        plt.xlabel("Date", fontsize=12)
-        plt.ylabel("Total Sales (₹)", fontsize=12)
-        plt.xticks(rotation=45)
-        plt.grid(axis='y', linestyle='--', alpha=0.7)
-        plt.tight_layout()
-        plt.show()
+        # Table data
+        table_data = [[today, f"₹{total_sales:,.2f}"]]
+        headers = ["Date", "Total Sales"]
+
+        # Print tabulated sales report
+        print("\n" + tabulate(table_data, headers=headers, tablefmt="double_grid", stralign="center") + "\n")
 
     def monthly_sales(self):
         # Get current month and year
@@ -193,20 +188,121 @@ class StoreManager:
     def send_promotional_mail_to_customers(self):
         """Send promotional emails to customers."""
         pass
-    
-    def view_customer_data(self):
-        """View customer information."""
-        pass
-    
-    def view_returned_items(self):
-        """View list of returned items."""
-        pass
-    
-    def manage_discount_coupons(self):
-        """Manage discount coupons (add, remove, update)."""
-        pass
 
-    
+# ----------------------------------------------------------------------------------------------------
+
+
+    def view_customer_data(self):
+        # Fetch all customer data
+        self.cursor.execute("SELECT id, name, phone, smart_coins FROM customers")
+        results = self.cursor.fetchall()
+
+        if not results:
+            print("\nNo customer data available.\n")
+            return
+
+        # Table headers
+        headers = ["ID", "Name", "Phone", "Smart Coins (₹)"]
+
+        # Format data (round smart coins to 2 decimal places)
+        table_data = [[row[0], row[1], row[2], f"₹{row[3]:,.2f}"] for row in results]
+
+        # Print the table with solid borders
+        print("\n" + tabulate(table_data, headers=headers, tablefmt="double_grid", colalign=("center", "left", "center", "right")) + "\n")
+
+# ----------------------------------------------------------------------------------------------------
+
+
+    def view_returned_items(self):
+        
+        # Fetch returned items from the database
+        self.cursor.execute("SELECT id, bill_id, product_name, reason, quantity FROM returned_products")
+        results = self.cursor.fetchall()
+
+        if not results:
+            print("\nNo returned items found.\n")
+            return
+
+        # Table headers
+        headers = ["ID", "Bill ID", "Product Name", "Reason", "Quantity"]
+
+        # Format data
+        table_data = [[row[0], row[1], row[2], row[3], row[4]] for row in results]
+
+        # Print the table with solid borders
+        print("\n" + tabulate(table_data, headers=headers, tablefmt="double_grid", colalign=("center", "center", "left", "left", "center")) + "\n")
+
+# ----------------------------------------------------------------------------------------------------
+
+
+
+
+    def manage_discount_coupons(self):
+        
+        # Fetch unique categories from the products table
+        self.cursor.execute("SELECT DISTINCT category FROM products")
+        categories = self.cursor.fetchall()
+        
+        if categories:
+            print("\n🔹 Available Product Categories 🔹")
+            print(tabulate(categories, headers=["Category"], tablefmt="grid", numalign="center"))
+        else:
+            print("❌ No categories found in the products table.")
+            return  # Exit if no categories found
+        
+        print("\nEnter the details below to add a new discount coupon.\n")
+
+        # Get coupon details from the admin
+        coupon_code = input("Enter Coupon Code: ").strip().upper()
+        
+        # Get category from the available options
+        while True:
+            category = input("Enter Product Category (from above list): ").strip().title()
+            # Check if the entered category exists in the available categories
+            if any(c[0] == category for c in categories):
+                break
+            else:
+                print("❌ Invalid category! Please enter a valid category from the list.")
+
+        while True:
+            try:
+                discount_percentage = float(input("Enter Discount Percentage (%): ").strip())
+                if discount_percentage <= 0 or discount_percentage > 100:
+                    print("❌ Invalid percentage! Must be between 0 and 100.")
+                    continue
+                break
+            except ValueError:
+                print("❌ Invalid input! Please enter a numeric value.")
+
+        while True:
+            expiry_date = input("Enter Expiry Date (YYYY-MM-DD): ").strip()
+            try:
+                # Validate date format
+                expiry_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+                if expiry_date <= datetime.today().date():
+                    print("❌ Expiry date must be in the future!")
+                    continue
+                expiry_date = expiry_date.strftime("%Y-%m-%d")  # Convert back to string for database
+                break
+            except ValueError:
+                print("❌ Invalid date format! Please enter in YYYY-MM-DD format.")
+
+        # Insert data into the database
+        try:
+            self.cursor.execute("""
+                INSERT INTO discount_coupons (coupon_code, category, discount_percentage, expiry_date) 
+                VALUES (?, ?, ?, ?)
+            """, (coupon_code, category, discount_percentage, expiry_date))
+            
+            self.connection.commit()  # Commit the transaction
+            print(f"\n✅ Coupon '{coupon_code}' added successfully for category '{category}' with {discount_percentage}% discount! Expiry: {expiry_date}\n")
+
+        except Exception as e:
+            print(f"❌ Error: {e}\n")       
+
+    def close(self):
+        self.connection.close()    
+
 # ----------------------------------------------------------------------------------------------------
 #---------------------------------Main Function------------------------------------------------------- 
 def main():
@@ -270,6 +366,7 @@ def main():
                         manager.manage_discount_coupons()
                     elif manager_choice == "7":
                         print(colored("Exiting Store Manager Panel...", "yellow"))
+                        manager.close();    
                         break
                     else:
                         print(colored("Invalid choice, please try again.", "red"))
