@@ -3,7 +3,8 @@ import os
 import matplotlib.pyplot as plt
 from tabulate import tabulate  #for Table Formats
 from termcolor import colored  #for Table Colored
-from datetime import datetime, timedelta
+from datetime import datetime
+import requests # To send promotional message to customer here i used twilio library of python
 
 # Initialize SQLite database
 DB_NAME = "mall_inventory.db"
@@ -186,8 +187,71 @@ class StoreManager:
 
     
     def send_promotional_mail_to_customers(self):
-        """Send promotional emails to customers."""
-        pass
+
+        print("\n🔹 Available Customer Phone Numbers 🔹\n")
+
+        # Fetch all customer phone numbers
+        self.cursor.execute("SELECT phone FROM customers")
+        customers = self.cursor.fetchall()
+
+        if not customers:
+            print("❌ No customers found in the database!")
+            return
+
+        # Format and display customer phone numbers
+        phone_numbers = [[idx + 1, row[0]] for idx, row in enumerate(customers)]
+        print(tabulate(phone_numbers, headers=["Sr. No", "Phone Number"], tablefmt="grid"))
+
+        # Ask for the phone number
+        while True:
+            try:
+                selected_index = int(input("\nEnter the Sr. No of the customer to send SMS: ").strip()) - 1
+                if selected_index < 0 or selected_index >= len(phone_numbers):
+                    print("❌ Invalid selection! Please enter a valid Sr. No.")
+                    continue
+                break
+            except ValueError:
+                print("❌ Invalid input! Please enter a numeric value.")
+
+        selected_phone = phone_numbers[selected_index][1]
+
+        # Get the promotional message
+        message = input("\nEnter the promotional message: ").strip()
+        if not message:
+            print("❌ Message cannot be empty!")
+            return
+
+        # Send SMS
+        self.send_sms(selected_phone, message)
+
+    def send_sms(self, to_number, message):
+        """Send SMS using Twilio API."""
+        
+        # Twilio credentials (Replace with your actual details)
+        TWILIO_SID = "AC0bf05489aa1d3b0c1f1f190f3d3d4452"
+        TWILIO_AUTH_TOKEN = "9c8c360f3977b78acd30c99196439122"
+        TWILIO_PHONE_NUMBER = "+16062122916"
+
+
+
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_SID}/Messages.json"
+
+        data = {
+            "To": to_number,      # The recipient's phone number
+            "From": TWILIO_PHONE_NUMBER,  # Your Twilio phone number
+            "Body": message       # The message to send
+        }
+
+        try:
+            response = requests.post(url, data=data, auth=(TWILIO_SID, TWILIO_AUTH_TOKEN))
+            
+            if response.status_code == 201:
+                print(f"\n✅ SMS successfully sent to {to_number}!")
+            else:
+                print(f"\n❌ Failed to send SMS. Error: {response.text}")
+
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Network Error: {e}")
 
 # ----------------------------------------------------------------------------------------------------
 
