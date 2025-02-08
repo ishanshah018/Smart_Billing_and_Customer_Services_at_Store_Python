@@ -30,7 +30,30 @@ class Customer:
         self.cursor = self.connection.cursor()
         
 
-    # Register customer
+    #Register Customer
+
+    @staticmethod
+    
+    def register(name, phone, password,smartcoins=0):
+        connection = sqlite3.connect(DB_NAME)  
+        cursor = connection.cursor()
+
+        try:
+            # Insert new customer data
+            cursor.execute(
+                "INSERT INTO customers (name, phone, password,smart_coins) VALUES (?, ?, ?,?)",
+                (name, phone, password,smartcoins)
+            )
+            connection.commit()
+            print("Registration successful!")
+        except sqlite3.IntegrityError:
+            print("Error: Phone number already exists. Please use a different number.")
+
+# -----------------------------------------------------------------------------------------------------------------
+
+
+    # Login customer
+
     @staticmethod
     
     def login(phone, password):
@@ -51,7 +74,52 @@ class Customer:
             print(colored(f"\n{'Invalid login credentials. Please try again.':^50}", "red", attrs=["bold"]))
             print(colored(border, "red"))
             return None
+    
+        
 # -----------------------------------------------------------------------------------------------------------------
+
+    def profile(self):
+        connection = sqlite3.connect(DB_NAME) 
+        cursor = connection.cursor()
+
+        # Fetch only the logged-in customer's data
+        cursor.execute("SELECT name, phone FROM customers WHERE phone = ?", (self.phone,))
+        customer = cursor.fetchone()
+
+        if not customer:
+            print("Customer not found.")
+            return
+        
+        # Display table with only logged-in customer details
+        print(tabulate([customer], headers=["Name", "Phone Number"], tablefmt="grid"))
+
+        # Show options
+        print("\nOptions:")
+        print("1. Change Name")
+        print("2. Change Mobile Number")
+        print("3. Exit")
+
+        choice = input("Enter your choice: ").strip()
+
+        if choice == "1":
+            new_name = input("Enter new name: ").strip()
+            cursor.execute("UPDATE customers SET name = ? WHERE phone = ?", (new_name, self.phone))
+            connection.commit()
+            print("Name updated successfully.")
+
+        elif choice == "2":
+            while True:
+                new_phone = input("Enter new phone number: ").strip()
+                if new_phone.isdigit() and len(new_phone) == 10:
+                    new_phone = "+91" + new_phone  # Auto-add +91
+                    break
+                else:
+                    print("Invalid phone number! Please enter a 10-digit number.")
+
+            cursor.execute("UPDATE customers SET phone = ? WHERE phone = ?", (new_phone, self.phone))
+            connection.commit()
+            print("Phone number updated successfully.")
+
 
     # Function to display products 
 
@@ -1193,13 +1261,22 @@ def main():
         choice = input("Enter your choice: ")
 
         if choice == "1":
-            name = input("Enter your name: ")
-            phone = input("Enter your phone number: ")
-            password = input("Enter your password: ")
+            name = input("Enter your name: ").strip()
+
+            # Mobile number validation loop
+            while True:
+                phone = input("Enter your phone number: ").strip()
+                if phone.isdigit() and len(phone) == 10:
+                    phone = "+91" + phone  # Auto-add +91
+                    break
+                else:
+                    print("Invalid phone number! Please enter a 10-digit number.")
+
+            password = input("Enter your new password: ").strip()
             Customer.register(name, phone, password)
 
         elif choice == "2":
-            phone = input("Enter your phone number: ")
+            phone = "+91" + input("Enter your phone number: ")
             password = input("Enter your password: ")
             customer = Customer.login(phone, password)
 
@@ -1207,7 +1284,7 @@ def main():
                 while True:
                     # Customer menu options in a table format
                     customer_menu = [
-                        ["1", "View Profile"],
+                        ["1", "Your Profile Handle"],
                         ["2", "View Products"],
                         ["3", "Generate Bill"],
                         ["4", "View Past Bills"],
@@ -1227,7 +1304,7 @@ def main():
                     customer_choice = input("Enter your choice: ")
 
                     if customer_choice == "1":
-                        print(f"Name: {customer.name}, Phone: {customer.phone}, Smart Coins: {customer.smart_coins}")
+                        customer.profile()
                     elif customer_choice == "2":
                         customer.view_products()
                     elif customer_choice == "3":
