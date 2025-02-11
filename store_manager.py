@@ -207,25 +207,24 @@ class StoreManager:
             try:
                 selected_index = int(input("\nEnter the Sr. No of the customer to send SMS: ").strip()) - 1
                 if selected_index < 0 or selected_index >= len(phone_numbers):
-                    print("❌ Invalid selection! Please enter a valid Sr. No.")
+                    print("Invalid selection! Please enter a valid Sr. No.")
                     continue
                 break
             except ValueError:
-                print("❌ Invalid input! Please enter a numeric value.")
+                print("Invalid input! Please enter a numeric value.")
 
         selected_phone = phone_numbers[selected_index][1]
 
         # Get the promotional message
         message = input("\nEnter the promotional message: ").strip()
         if not message:
-            print("❌ Message cannot be empty!")
+            print("Message cannot be empty!")
             return
 
         # Send SMS
         self.send_sms(selected_phone, message)
 
     def send_sms(self, to_number, message):
-        """Send SMS using Twilio API."""
         
         # Twilio credentials (Replace with your actual details)
         TWILIO_SID = "AC0bf05489aa1d3b0c1f1f190f3d3d4452"
@@ -248,10 +247,10 @@ class StoreManager:
             if response.status_code == 201:
                 print(f"\n✅ SMS successfully sent to {to_number}!")
             else:
-                print(f"\n❌ Failed to send SMS. Error: {response.text}")
+                print(f"\nFailed to send SMS. Error: {response.text}")
 
         except requests.exceptions.RequestException as e:
-            print(f"❌ Network Error: {e}")
+            print(f"Network Error: {e}")
 
 # ----------------------------------------------------------------------------------------------------
 
@@ -311,7 +310,7 @@ class StoreManager:
             print("\n🔹 Available Product Categories 🔹")
             print(tabulate(categories, headers=["Category"], tablefmt="grid", numalign="center"))
         else:
-            print("❌ No categories found in the products table.")
+            print("No categories found in the products table.")
             return  # Exit if no categories found
         
         print("\nEnter the details below to add a new discount coupon.\n")
@@ -326,17 +325,17 @@ class StoreManager:
             if any(c[0] == category for c in categories):
                 break
             else:
-                print("❌ Invalid category! Please enter a valid category from the list.")
+                print(" Invalid category! Please enter a valid category from the list.")
 
         while True:
             try:
                 discount_percentage = float(input("Enter Discount Percentage (%): ").strip())
                 if discount_percentage <= 0 or discount_percentage > 100:
-                    print("❌ Invalid percentage! Must be between 0 and 100.")
+                    print("Invalid percentage! Must be between 0 and 100.")
                     continue
                 break
             except ValueError:
-                print("❌ Invalid input! Please enter a numeric value.")
+                print("Invalid input! Please enter a numeric value.")
 
         while True:
             expiry_date = input("Enter Expiry Date (YYYY-MM-DD): ").strip()
@@ -344,12 +343,12 @@ class StoreManager:
                 # Validate date format
                 expiry_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
                 if expiry_date <= datetime.today().date():
-                    print("❌ Expiry date must be in the future!")
+                    print("Expiry date must be in the future!")
                     continue
                 expiry_date = expiry_date.strftime("%Y-%m-%d")  # Convert back to string for database
                 break
             except ValueError:
-                print("❌ Invalid date format! Please enter in YYYY-MM-DD format.")
+                print("Invalid date format! Please enter in YYYY-MM-DD format.")
 
         # Insert data into the database
         try:
@@ -362,7 +361,7 @@ class StoreManager:
             print(f"\n✅ Coupon '{coupon_code}' added successfully for category '{category}' with {discount_percentage}% discount! Expiry: {expiry_date}\n")
 
         except Exception as e:
-            print(f"❌ Error: {e}\n")       
+            print(f"Error: {e}\n")       
 
     def close(self):
         self.connection.close()    
