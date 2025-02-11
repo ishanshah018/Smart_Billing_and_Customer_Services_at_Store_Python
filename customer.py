@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from tabulate import tabulate  #for Table Formats
 from termcolor import colored  #for Table Colored
 from datetime import datetime, timedelta
+from collections import defaultdict
+
 
 # Initialize SQLite database
 DB_NAME = "mall_inventory.db"
@@ -16,6 +18,62 @@ def get_current_date():
 # Helper functions for Fetching Current Month
 def get_current_month():
     return datetime.now().strftime("%d-%m-%Y") # Returns the current month in 'DD-MM-YYYY' format
+
+
+
+
+# XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   DSA   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+class TrieNode:
+    def __init__(self):
+        self.children = {}
+        self.is_end = False
+        self.products = []  # Store matching product names
+
+class Trie:
+    def __init__(self):
+        self.root = TrieNode()
+    
+    def insert(self, word, full_product):
+        node = self.root
+        for char in word.lower():  # Convert to lowercase for case insensitivity
+            if char not in node.children:
+                node.children[char] = TrieNode()
+            node = node.children[char]
+            node.products.append(full_product)  # Store product suggestion
+        node.is_end = True
+    
+    def search(self, prefix):
+        node = self.root
+        for char in prefix.lower():
+            if char not in node.children:
+                return []
+            node = node.children[char]
+        return node.products  # Return all suggestions
+
+# Function to load product data from SQLite and build Trie
+
+def build_trie():
+    trie = Trie()
+    category_dict = defaultdict(list)
+    
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, category FROM products")
+    products = cursor.fetchall()
+    conn.close()
+    
+    for name, category in products:
+        words = name.lower().split()  # Tokenize name
+        for word in words:
+            trie.insert(word, name)  # Insert each word for autocomplete
+        trie.insert(name.lower(), name)  # Insert full name too
+        category_dict[category.lower()].append(name)
+    
+    return trie, category_dict
+
+
+# XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 # Customer Class
 class Customer:
@@ -48,6 +106,7 @@ class Customer:
             print("Registration successful!")
         except sqlite3.IntegrityError:
             print("Error: Phone number already exists. Please use a different number.")
+
 
 # -----------------------------------------------------------------------------------------------------------------
 
@@ -120,6 +179,7 @@ class Customer:
             connection.commit()
             print("Phone number updated successfully.")
 
+# -----------------------------------------------------------------------------------------------------------------
 
     # Function to display products 
 
@@ -139,6 +199,42 @@ class Customer:
         else:
             print("No products available.")    
 # -----------------------------------------------------------------------------------------------------------------
+
+    def search_product():
+        trie, category_dict = build_trie()
+
+        while True:
+            print("\nSearch Options:")
+            print("1. Search by Category")
+            print("2. Search by Name")
+            print("3. Exit")
+            choice = input("Enter your choice: ")
+
+            if choice == "1":
+                category = input("Enter category name: ").lower()
+                if category in category_dict:
+                    table_data = [[idx + 1, name] for idx, name in enumerate(category_dict[category])]
+                    header = [colored("#", "green"), colored("Product Name", "green")]
+                    print(tabulate(table_data, headers=header, tablefmt="double_grid"))
+                else:
+                    print("No products found in this category.")
+
+            elif choice == "2":
+                query = input("Enter product name or partial name: ").lower()
+                results = trie.search(query)
+                if results:
+                    table_data = [[idx + 1, name] for idx, name in enumerate(set(results))]
+                    print(tabulate(table_data, headers=[colored("#", "green"), colored("Product Name", "green")], tablefmt="double_grid"))
+                else:
+                    print("No matching products found.")
+
+            elif choice == "3":
+                break
+            else:
+                print("Invalid choice, try again.")
+
+# -----------------------------------------------------------------------------------------------------------------
+
 
     # View discount offers
     def view_discount_offers(self):
@@ -469,8 +565,6 @@ class Customer:
 
 # -----------------------------------------------------------------------------------------------------------------
 
-
-# ***********************************
     # Generate and display the bill
     def generate_bill(self,predefined_items=None):
         items = []
@@ -1286,15 +1380,16 @@ def main():
                     customer_menu = [
                         ["1", "Your Profile Handle"],
                         ["2", "View Products"],
-                        ["3", "Generate Bill"],
-                        ["4", "View Past Bills"],
-                        ["5", "View Offers [Buy X get X Free !!]"],
-                        ["6", "View Smart Coins"],
-                        ["7", "View Discount Coupons"],
-                        ["8", "Return/Replacement Product"],
-                        ["9", "Visualize Your Spending Trends [SMART]"],
-                        ["10","SMART ~~ Shopping Assistant ~~ "],
-                        ["11", "Exit"]
+                        ["3", "Search Products"],
+                        ["4", "Generate Bill"],
+                        ["5", "View Past Bills"],
+                        ["6", "View Offers [Buy X get X Free !!]"],
+                        ["7", "View Smart Coins"],
+                        ["8", "View Discount Coupons"],
+                        ["9", "Return/Replacement Product"],
+                        ["10", "Visualize Your Spending Trends [SMART]"],
+                        ["11","SMART ~~ Shopping Assistant ~~ "],
+                        ["12", "Exit"]
                     ]
                     
                     # Tabulate customer menu
@@ -1308,18 +1403,20 @@ def main():
                     elif customer_choice == "2":
                         customer.view_products()
                     elif customer_choice == "3":
-                        customer.generate_bill()
+                        Customer.search_product()    
                     elif customer_choice == "4":
-                        customer.view_past_bills()
+                        customer.generate_bill()
                     elif customer_choice == "5":
-                        customer.view_discount_offers()
+                        customer.view_past_bills()
                     elif customer_choice == "6":
-                        customer.view_smart_coins()
+                        customer.view_discount_offers()
                     elif customer_choice == "7":
-                        customer.view_coupons()
+                        customer.view_smart_coins()
                     elif customer_choice == "8":
-                        customer.request_refund_replacement()
+                        customer.view_coupons()
                     elif customer_choice == "9":
+                        customer.request_refund_replacement()
+                    elif customer_choice == "10":
                         print("\n" + colored("Spending Trends - Select any that you want to view:", "yellow"))
                         
                         # Spending trend options in a table format
@@ -1347,7 +1444,7 @@ def main():
                         else:
                             print("Invalid choice. Returning to the main menu.")
 
-                    elif customer_choice == "10":
+                    elif customer_choice == "11":
                             print("\n" + colored("Smart ~~Shopping Assistant~~ ", "yellow"))
 
                             # Smart shopping assistant options in a table format
@@ -1378,7 +1475,7 @@ def main():
                         
 
 
-                    elif customer_choice == "11":
+                    elif customer_choice == "12":
                         print("Logging out...")
                         break
                     else:

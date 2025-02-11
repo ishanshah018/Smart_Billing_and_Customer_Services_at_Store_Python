@@ -4,7 +4,6 @@ from tabulate import tabulate  # For table formatting
 from termcolor import colored
 
 
-
 # Function to print the menu in a centered and properly formatted table
 def print_menu():
     width = os.get_terminal_size().columns
