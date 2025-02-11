@@ -1,0 +1,109 @@
+What is a Trie?
+
+A Trie (pronounced “try”) is a tree-like data structure used for efficient searching and 
+storing of strings. It is mainly used for autocomplete, spell checking, and searching words with prefixes.
+
+Key Features of a Trie
+	1.	Fast Search → Lookup time is O(M), where M is the length of the word (better than O(N) for lists).
+	2.	Prefix Matching → Quickly finds words that start with a given prefix.
+	3.	Efficient Storage → Common prefixes are stored once, reducing redundancy.
+	4.	Used in DSA for Autocomplete, Spell Check, and Searching Words.
+
+    How a Trie Works
+
+Each node in a Trie represents a single character.
+	•	Each word is stored as a path from the root to a node.
+	•	Each node has children corresponding to possible next characters.
+	•	A boolean flag (is_end) marks the end of a complete word.
+
+E.X: "cat" and "car" share the prefix "ca", so they branch after "a".
+
+        (root)
+        /    \
+      c       ...
+      |
+      a
+     / \
+    t   r
+
+
+ Where is Trie Used?
+
+✅ Autocomplete (like Google search suggestions)
+✅ Spell Checker
+✅ IP Routing (Longest Prefix Match)
+✅ Dictionary Word Lookup
+✅ DNA Sequence Matching
+
+
+
+In this implementation, I've set up a Trie that stores product names and helps with autocomplete functionality based on word prefixes. Below is an explanation of the key variables and methods used in your code:
+
+1. TrieNode Class
+
+	self.children:
+
+	•	Purpose: A dictionary to store child nodes where the key is a character and the value is another TrieNode. Each TrieNode represents a character in the word.
+	•	Example: If the word is “apple”, children will store the characters a, p, l, e as keys pointing to child nodes.
+	•	self.is_end:
+	•	Purpose: A boolean flag that marks whether the current node represents the end of a word. It helps to distinguish between prefixes and complete words.
+	•	self.products:
+	•	Purpose: A list to store product names that match the current prefix. As you build the trie, this list accumulates products whose names contain the prefix represented by the path leading to the node.
+
+2. Trie Class
+
+	self.root:
+
+	•	Purpose: The root of the trie. It’s an instance of TrieNode but doesn’t hold any character itself. It serves as the starting point for inserting or searching for words.
+
+	insert(word, full_product):
+
+	•	Purpose: This method inserts a word (or part of a word) into the trie, and adds the full product name to the products list of each node along the path 
+        of characters that represent the word.
+    Details:
+	•	The method converts the word to lowercase to ensure case insensitivity.
+	•	It iterates over each character of the word and adds it to the children dictionary if not already present.
+	•	The product name is added to node.products at each node that corresponds to a character in the word, thus allowing the trie to suggest products based on prefixes.
+	•	The is_end flag is set to True when the end of the word is reached.
+
+	search(prefix):
+
+	•	Purpose: This method searches for a given prefix in the trie. It returns a list of product names that match the prefix.
+	Details:
+	•	It starts from the root node and follows the characters in the prefix.
+	•	If the prefix exists, it returns the list of products stored in node.products. If the prefix doesn’t exist, it returns an empty list.
+
+3. build_trie() Function
+
+	category_dict:
+
+	•	Purpose: A defaultdict(list) to store products grouped by their categories. The key is the category name (in lowercase), and the value is a list of
+                 product names in that category.
+
+	SQL Database Connection:
+
+	•	Purpose: The function fetches product data from an SQLite database (DB_NAME), where it retrieves product names and their categories. 
+                 The connection is established using sqlite3.connect(DB_NAME).
+
+	Tokenization
+	•	Purpose: The product names are split into words (tokens) using the split() method to tokenize them into individual words. 
+                 Each word is inserted into the trie for autocomplete functionality.
+                 The full product name is also inserted into the trie to ensure exact matches.
+
+	Inserting into Trie:
+
+	•	Purpose: For each product name, all individual words and the full name are inserted into the trie to ensure
+                 that partial matches (prefixes) and exact matches are both stored.
+
+	Building Category Dictionary:
+	•	Purpose: The products are also categorized by their category. For each product, its name is appended to a list under its category in the category_dict.
+
+Example Execution
+	•	Inserting a Product: If you insert a product name “Apple Juice” into the trie, it will break the name into the words “apple” and “juice” and insert them.
+        Both “apple” and “juice” will have the product “Apple Juice” stored in their products lists. Additionally, the full product name “apple juice” 
+        will be stored under the root node.
+	•	Searching for Prefix: If you search for the prefix “apple”, the trie will return a list of products containing that prefix, such as “Apple Juice”.
+
+Key Flow:
+	1.	build_trie() loads data from the database and inserts product names into the trie.
+	2.	When a user types a prefix, search(prefix) looks up the prefix in the trie and returns a list of product names that match.
