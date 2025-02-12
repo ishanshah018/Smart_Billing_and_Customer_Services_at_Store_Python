@@ -812,7 +812,7 @@ class Customer:
         bill_id = cursor.lastrowid
 
         # Update category_spending and monthly_spending tables
-        self.update_spending_data(items,bill_id)
+        self.update_spending_data(items,bill_id,final_amount)
 
 # -----------------------------------------------------------------------------------------------------------------
 
@@ -837,7 +837,7 @@ class Customer:
 
 
     # Update spending data in database
-    def update_spending_data(self, items, bill_id):
+    def update_spending_data(self, items, bill_id,final_amount):
         customer_mob = self.phone  # Example: Replace this with your actual method of fetching customer mobile number
         current_month = get_current_month()  # Should return the current month in 'YYYY-MM' format
 
@@ -860,7 +860,7 @@ class Customer:
                     ON CONFLICT(customer_mobile, category, bill_id) DO UPDATE SET 
                         total_spent = total_spent + ?, 
                         total_items = total_items + ?
-                """, (customer_mob, category_name, item['price'] * item['quantity'], item['quantity'], bill_id,
+                """, (customer_mob, category_name, final_amount, item['quantity'], bill_id,
                     item['price'] * item['quantity'], item['quantity']))
                 connection.commit()  # Commit after insert
 
@@ -871,7 +871,7 @@ class Customer:
                     ON CONFLICT(customer_mobile, category, bill_date, bill_id) DO UPDATE SET 
                         total_spent = total_spent + ?, 
                         total_items = total_items + ?
-                """, (customer_mob, category_name, item['price'] * item['quantity'], item['quantity'], current_month, bill_id,
+                """, (customer_mob, category_name, final_amount, item['quantity'], current_month, bill_id,
                     item['price'] * item['quantity'], item['quantity']))
                 connection.commit()  # Commit after insert
 
