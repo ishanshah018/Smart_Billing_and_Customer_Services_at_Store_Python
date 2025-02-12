@@ -712,11 +712,6 @@ class Customer:
             else:
                 print("Invalid or expired coupon code.")
 
-            # Deduct discount only from the category's total amount
-            total_amount -= discount  
-
-
-            
 
         
         # Ask if the user wants to redeem Smart Coins
