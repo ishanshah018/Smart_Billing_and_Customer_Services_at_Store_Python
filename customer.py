@@ -242,12 +242,13 @@ class Customer:
         cursor = connection.cursor()
         cursor.execute("SELECT product_name, discount_type, discount_description FROM product_discounts")
         offers = cursor.fetchall()
-        
+        connection.close()
 
         if offers:
+            headers = ["Product Name", "Discount Type", "Description"]
+            table = tabulate(offers, headers=headers, tablefmt="double_grid")
             print("\nAvailable Offers:")
-            for offer in offers:
-                print(f"Product: {offer[0]}, Discount Type: {offer[1]}, Description: {offer[2]}")
+            print(table)
         else:
             print("No offers available.")
 # -----------------------------------------------------------------------------------------------------------------
@@ -315,7 +316,7 @@ class Customer:
             return
 
         # Step 5: Display bills in a tabular format
-        headers = ["Bill ID", "Date", "Total", "Discount", "Final", "Smart Coins"]
+        headers = ["Bill ID", "Date", "Total", "Discount", "Final [With GST Applied]"]
 
         # Format the rows with colors
         formatted_bills = []
