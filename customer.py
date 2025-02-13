@@ -77,7 +77,7 @@ def build_trie():
 
 # Customer Class
 class Customer:
-    def __init__(self, name, phone, password, smart_coins=0.0):
+    def __init__(self, name, phone, password, smart_coins=0):
         self.name = name
         self.phone = phone
         self.password = password
@@ -456,11 +456,13 @@ class Customer:
         if choice == "1":
             # Return Process
             reasons_return = [
-                "Defective Product",
-                "Item Not as Described",
-                "Expired Product",
-                "Other"
-            ]
+            "Defective Product",
+            "Item Not as Described",
+            "Wrong Size/Variant Purchased",
+            "Item Not Functioning Properly",
+            "Poor Product Quality",
+            "Found a Better Option"
+        ]
             print("\nSelect a reason for return:")
             for i, reason in enumerate(reasons_return, 1):
                 print(f"{i}. {reason}")
@@ -471,6 +473,17 @@ class Customer:
                 return
 
             reason = reasons_return[reason_choice - 1]
+
+            # Check if this product has already been returned under this bill_id
+            self.cursor.execute(
+                "SELECT quantity FROM returned_products WHERE bill_id = ? AND product_name = ?",
+                (bill_id, product_name)
+            )
+            returned_record = self.cursor.fetchone()
+
+            if returned_record:
+                print("\nThis product has already been returned or replaced. Multiple Processes for same product is not allowed.")
+                return
 
             # Ask for number of items to return
             num_items = int(input(f"Enter the number of '{product_name}' items to return (Max {quantity}): "))
@@ -494,7 +507,7 @@ class Customer:
                 (bill[1],)
             )
             smart_coins = self.cursor.fetchone()[0]
-            new_smart_coins= smart_coins + refund_amount
+            new_smart_coins = smart_coins + refund_amount
             self.cursor.execute(
                 "UPDATE customers SET smart_coins = ? WHERE phone = ?",
                 (new_smart_coins, bill[1])
@@ -506,11 +519,13 @@ class Customer:
         elif choice == "2":
             # Replacement Process
             reasons_replacement = [
-                "Defective Product",
-                "Wrong Item Delivered",
-                "Damaged During Transit",
-                "Other"
-            ]
+            "Defective Product",
+            "Got Item in Damaged Condition When Box Opened",
+            "Wrong Size/Variant Received",
+            "Item Not Functioning Properly",
+            "Parts Missing from Package",
+            "Poor Product Quality"
+        ]
             print("\nSelect a reason for replacement:")
             for i, reason in enumerate(reasons_replacement, 1):
                 print(f"{i}. {reason}")
@@ -522,6 +537,17 @@ class Customer:
 
             reason = reasons_replacement[reason_choice - 1]
 
+            # Check if this product has already been returned/replaced under this bill_id
+            self.cursor.execute(
+                "SELECT quantity FROM returned_products WHERE bill_id = ? AND product_name = ?",
+                (bill_id, product_name)
+            )
+            returned_record = self.cursor.fetchone()
+
+            if returned_record:
+                print("\nThis product has already been returned or replaced. Multiple processes for same product is not allowed.")
+                return
+
             # Ask for number of items to replace
             num_items = int(input(f"Enter the number of '{product_name}' items to replace (Max {quantity}): "))
 
@@ -529,7 +555,7 @@ class Customer:
                 print(f"Invalid quantity. Must be between 1 and {quantity}.")
                 return
 
-            # Insert replacement record into returned_products table
+            # Insert replacement record into returned_products table (as replacement is also considered a return)
             self.cursor.execute(
                 "INSERT INTO returned_products (bill_id, product_name, reason, quantity) VALUES (?, ?, ?, ?)",
                 (bill_id, product_name, reason, num_items)
@@ -546,7 +572,7 @@ class Customer:
                 print(f"Sorry, insufficient stock to process replacement for {num_items} items.")
                 return
 
-            # Update original stock from products table after giving new item to customer
+            # Update stock in products table after giving new item to customer
             new_stock = stock[0] - num_items
             self.cursor.execute(
                 "UPDATE products SET stock = ? WHERE name = ?",
