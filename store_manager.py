@@ -298,8 +298,6 @@ class StoreManager:
 # ----------------------------------------------------------------------------------------------------
 
 
-
-
     def manage_discount_coupons(self):
         
         # Fetch unique categories from the products table
@@ -362,6 +360,44 @@ class StoreManager:
 
         except Exception as e:
             print(f"Error: {e}\n")       
+# ----------------------------------------------------------------------------------------------------
+    def see_feedback(self):
+        # Connect to the database
+        connection = sqlite3.connect(DB_NAME)
+        cursor = connection.cursor()
+
+        # Fetch all feedbacks from the database
+        cursor.execute("SELECT customer_name, customer_mobile, rating, feedback FROM feedback")
+        feedbacks = cursor.fetchall()
+
+        # Close the connection
+        connection.close()
+
+        # Check if there are any feedbacks
+        if not feedbacks:
+            print("No feedback available.")
+            return
+
+        # Display feedback in a formatted table
+        headers = ["Customer Name", "Mobile", "Rating", "Feedback"]
+
+        # Format feedback data for tabulation
+        formatted_feedbacks = []
+        for feedback in feedbacks:
+            formatted_feedbacks.append([
+                feedback[0],  # Customer Name
+                feedback[1],  # Mobile
+                feedback[2],  # Rating
+                feedback[3] if feedback[3] else "No Feedback Provided"  # Feedback (or default text)
+            ])
+
+        # Print feedback in tabular format
+        print("\nCustomer Feedback:")
+        print(tabulate(formatted_feedbacks, headers=headers, tablefmt="fancy_grid"))
+
+
+# ----------------------------------------------------------------------------------------------------
+
 
     def close(self):
         self.connection.close()    
@@ -406,7 +442,8 @@ def main():
                         ["4", "View Customers Data"],
                         ["5", "View Returned Items by Customers"],
                         ["6", "Manage Discount Coupons"],
-                        ["7", "Exit"]
+                        ["7", "View Feedbacks Of Customers"],
+                        ["8", "Exit"]
                     ]
 
                     # Tabulate manager menu
@@ -427,7 +464,9 @@ def main():
                         manager.view_returned_items()
                     elif manager_choice == "6":
                         manager.manage_discount_coupons()
-                    elif manager_choice == "7":
+                    elif manager_choice=="7":
+                        manager.see_feedback()
+                    elif manager_choice == "8":
                         print(colored("Exiting Store Manager Panel...", "yellow"))
                         manager.close();    
                         break

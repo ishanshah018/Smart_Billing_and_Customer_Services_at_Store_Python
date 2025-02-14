@@ -1443,8 +1443,6 @@ class Customer:
                     "quantity_required": quantity,  # Quantity required
                 })
 
-        connection.close()
-
         if not available_products:
             print(f"Sorry, items for '{selected_item}' are unavailable in inventory.")
             return
@@ -1475,6 +1473,41 @@ class Customer:
         else:
             print("Returning to Smart Shopping Assistant.")
     
+
+# -----------------------------------------------------------------------------------------------------------------
+
+    def feedback(self):
+        connection = sqlite3.connect(DB_NAME)
+        cursor = connection.cursor()
+
+        # Get customer details from the object (assuming `self.name` and `self.phone` exist)
+        customer_name = self.name
+        customer_mobile = self.phone
+
+        # Ensure valid rating input between 1 and 5
+        while True:
+            try:
+                rating = int(input("Rate our store (1 to 5): ").strip())
+                if rating < 1 or rating > 5:
+                    raise ValueError("Rating must be between 1 and 5.")
+                break
+            except ValueError as e:
+                print(e)
+
+        # Optional text feedback
+        feedback_text = input("Enter your feedback (optional): ").strip()
+
+        # Insert feedback into the database
+        cursor.execute("""
+            INSERT INTO feedback (customer_name, customer_mobile, rating, feedback)
+            VALUES (?, ?, ?, ?)
+        """, (customer_name, customer_mobile, rating, feedback_text))
+
+        connection.commit()  # Save the changes
+        print("Thank you for your feedback!")
+
+        # Close the connection
+        connection.close()
 
 # -----------------------------------------------------------------------------------------------------------------
 # -----------------------------------------------------------------------------------------------------------------       
@@ -1540,8 +1573,9 @@ def main():
                         ["8", "View Discount Coupons"],
                         ["9", "Return/Replacement Product"],
                         ["10", "Visualize Your Spending Trends [SMART]"],
-                        ["11","SMART ~~ Shopping Assistant ~~ "],
-                        ["12", "Exit"]
+                        ["11"," ✦ SMART ~ Shopping Assistant ✦"],
+                        ["12","Submit Your Valuable Feedback for our Store"],
+                        ["13", "Exit"]
                     ]
                     
                     # Tabulate customer menu
@@ -1624,10 +1658,12 @@ def main():
                                 print("\nReturning to Main Menu...")
                             else:
                                 print(colored("Invalid option. Please try again.", "red"))
+
+                    elif customer_choice=="12":
+                        customer.feedback()
                         
 
-
-                    elif customer_choice == "12":
+                    elif customer_choice == "13":
                         print("Logging out...")
                         break
                     else:

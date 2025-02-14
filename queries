@@ -90,7 +90,15 @@ CREATE TABLE IF NOT EXISTS top_items (
     PRIMARY KEY (customer_mobile, item_name)
 );
 
+CREATE TABLE feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_name TEXT NOT NULL,
+    customer_mobile TEXT NOT NULL,
+    rating INTEGER CHECK(rating BETWEEN 1 AND 5) NOT NULL,
+    feedback TEXT
+);
 
+-----------------------------
 -- DELETE For restart
 
 DELETE FROM top_items;
