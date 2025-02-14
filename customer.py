@@ -28,34 +28,37 @@ class TrieNode:
     def __init__(self):
         self.children = {}
         self.is_end = False
-        self.products = []  # Store matching product names
+        self.items = []  # Stores product names or categories
 
 class Trie:
     def __init__(self):
         self.root = TrieNode()
     
-    def insert(self, word, full_product):
+    def insert(self, word, full_item):
+        """Insert a word into the Trie and store the full item (product/category)"""
         node = self.root
         for char in word.lower():  # Convert to lowercase for case insensitivity
             if char not in node.children:
                 node.children[char] = TrieNode()
             node = node.children[char]
-            node.products.append(full_product)  # Store product suggestion
+            node.items.append(full_item)  # Store product/category suggestion
         node.is_end = True
     
     def search(self, prefix):
+        """Return all items that match the given prefix"""
         node = self.root
         for char in prefix.lower():
             if char not in node.children:
                 return []
             node = node.children[char]
-        return node.products  # Return all suggestions
+        return node.items  # Return all suggestions
 
-# Function to load product data from SQLite and build Trie
+# Function to load product data from SQLite and build Tries
 
-def build_trie():
-    trie = Trie()
-    category_dict = defaultdict(list)
+def build_tries():
+    product_trie = Trie()
+    category_trie = Trie()
+    category_to_products = {}  # Maps full category names to product lists
     
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -66,11 +69,18 @@ def build_trie():
     for name, category in products:
         words = name.lower().split()  # Tokenize name
         for word in words:
-            trie.insert(word, name)  # Insert each word for autocomplete
-        trie.insert(name.lower(), name)  # Insert full name too
-        category_dict[category.lower()].append(name)
-    
-    return trie, category_dict
+            product_trie.insert(word, name)  # Insert each word for autocomplete
+        product_trie.insert(name.lower(), name)  # Insert full name too
+
+        category = category.lower()  # Normalize category name (lowercase)
+        category_trie.insert(category, category)  # Insert full category
+
+        # Store products by category
+        if category not in category_to_products:
+            category_to_products[category] = []
+        category_to_products[category].append(name)
+
+    return product_trie, category_trie, category_to_products
 
 
 # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -186,22 +196,56 @@ class Customer:
     def view_products(self):
         connection = sqlite3.connect(DB_NAME)
         cursor = connection.cursor()
-        cursor.execute("SELECT * FROM products")
-        products = cursor.fetchall()
-        
 
-        if products:
-            headers = ["ID", "Name", "Category", "Price", "Stock"]
-            
-            # Print the products in an attractive table format with enhanced styling
-            print("\nAvailable Products:")
-            print(tabulate(products, headers=headers, tablefmt="fancy_grid", numalign="center", stralign="center"))
-        else:
-            print("No products available.")    
+        while True:
+            print("\nView Options:")
+            print("1. View available Categories at Store")
+            print("2. View available Products at Store")
+            print("3. View Products with Categories")
+            print("4. Exit")
+            choice = input("Enter your choice: ")
+
+            if choice == "1":
+                cursor.execute("SELECT DISTINCT category FROM products")
+                categories = cursor.fetchall()
+
+                if categories:
+                    table_data = [[idx + 1, category[0]] for idx, category in enumerate(categories)]
+                    print("\nAvailable Categories:")
+                    print(tabulate(table_data, headers=["#", "Category"], tablefmt="fancy_grid", stralign="center"))
+                else:
+                    print("No categories available.")
+
+            elif choice == "2":
+                cursor.execute("SELECT name, price, stock FROM products")
+                products = cursor.fetchall()
+
+                if products:
+                    print("\nAvailable Products:")
+                    print(tabulate(products, headers=["Product Name", "Price", "Stock"], tablefmt="fancy_grid", numalign="center", stralign="center"))
+                else:
+                    print("No products available.")
+
+            elif choice == "3":
+                cursor.execute("SELECT * FROM products")
+                products = cursor.fetchall()
+
+                if products:
+                    headers = ["ID", "Name", "Category", "Price", "Stock"]
+                    print("\nAvailable Products with Categories:")
+                    print(tabulate(products, headers=headers, tablefmt="fancy_grid", numalign="center", stralign="center"))
+                else:
+                    print("No products available.")
+
+            elif choice == "4":
+                break
+
+            else:
+                print("Invalid choice, try again.")
 # -----------------------------------------------------------------------------------------------------------------
 
     def search_product():
-        trie, category_dict = build_trie()
+        product_trie, category_trie, category_to_products = build_tries()
 
         while True:
             print("\nSearch Options:")
@@ -211,17 +255,23 @@ class Customer:
             choice = input("Enter your choice: ")
 
             if choice == "1":
-                category = input("Enter category name: ").lower()
-                if category in category_dict:
-                    table_data = [[idx + 1, name] for idx, name in enumerate(category_dict[category])]
-                    header = [colored("#", "green"), colored("Product Name", "green")]
-                    print(tabulate(table_data, headers=header, tablefmt="double_grid"))
+                query = input("Enter category name or partial name: ").lower()
+                matching_categories = category_trie.search(query)
+                
+                matching_products = []
+                for category in set(matching_categories):  # Avoid duplicates
+                    if category in category_to_products:
+                        matching_products.extend(category_to_products[category])
+
+                if matching_products:
+                    table_data = [[idx + 1, name] for idx, name in enumerate(set(matching_products))]
+                    print(tabulate(table_data, headers=[colored("#", "green"), colored("Product Name", "green")], tablefmt="double_grid"))
                 else:
-                    print("No products found in this category.")
+                    print("No matching products found.")
 
             elif choice == "2":
                 query = input("Enter product name or partial name: ").lower()
-                results = trie.search(query)
+                results = product_trie.search(query)
                 if results:
                     table_data = [[idx + 1, name] for idx, name in enumerate(set(results))]
                     print(tabulate(table_data, headers=[colored("#", "green"), colored("Product Name", "green")], tablefmt="double_grid"))
@@ -308,7 +358,6 @@ class Customer:
         cursor = connection.cursor()
         cursor.execute(query, tuple(params))
         bills = cursor.fetchall()
-        
 
         # Step 4: Check if bills exist
         if not bills:
@@ -321,18 +370,63 @@ class Customer:
         # Format the rows with colors
         formatted_bills = []
         for bill in bills:
-
             formatted_bills.append([
-                colored(str(bill[0]), "cyan"),                # Bill ID
-                colored(str(bill[1]), "yellow"),             # Date
-                colored(f"{bill[2]:.2f}", "green"),          # Total
-                colored(f"{bill[3]:.2f}", "red"),            # Discount
-                colored(f"{bill[4]:.2f}", "blue"),           # Final
+                colored(str(bill[0]), "cyan"),  # Bill ID
+                colored(str(bill[1]), "yellow"),  # Date
+                colored(f"{bill[2]:.2f}", "green"),  # Total
+                colored(f"{bill[3]:.2f}", "red"),  # Discount
+                colored(f"{bill[4]:.2f}", "blue"),  # Final
             ])
 
         # Use tabulate to display the table
         print("\nBills Summary:")
-        print(tabulate(formatted_bills, headers=headers, tablefmt="fancy_grid"))
+        print(tabulate(formatted_bills, headers=headers, tablefmt="double_grid"))
+
+        # Step 6: Ask user to enter a Bill ID to view details
+        bill_id = input("\nEnter Bill ID to view details (or press Enter to exit): ").strip()
+        
+        if not bill_id.isdigit():
+            print("Invalid input. Exiting.")
+            return
+        
+        bill_id = int(bill_id)
+
+        # Check if the entered Bill ID exists
+        cursor.execute("SELECT bill_date, total_amount, discount, final_amount FROM bills WHERE id = ? AND customer_mobile = ?", (bill_id, self.phone))
+        bill_details = cursor.fetchone()
+
+        if not bill_details:
+            print("Invalid Bill ID or not associated with your account.")
+            return
+
+        bill_date, total_amount, discount, final_amount = bill_details
+
+        # Step 7: Fetch purchased items from item_purchase_history
+        cursor.execute("SELECT item_name, quantity, price FROM item_purchase_history WHERE bill_id = ?", (bill_id,))
+        purchased_items = cursor.fetchall()
+        connection.close()
+
+        # Step 8: Display Detailed Bill Format
+        print("\n" + "="*50)
+        print(" " * 18 + colored("STORE BILL", "cyan", attrs=["bold"]))
+        print("="*50)
+        print(f"Bill ID: {bill_id}     Date: {colored(bill_date, 'yellow')}")
+        print("="*50)
+
+        item_headers = ["Item Name", "Quantity", "Price (₹)", "Total (₹)"]
+        item_rows = [[colored(item[0], "yellow"), colored(str(item[1]), "cyan"), 
+                    colored(f"{item[2]:.2f}", "green"), 
+                    colored(f"{item[1] * item[2]:.2f}", "blue")] for item in purchased_items]
+
+        print(tabulate(item_rows, headers=item_headers, tablefmt="double_grid"))
+
+        print("="*50)
+        print(f"Total Amount: {colored(f'₹{total_amount:.2f}', 'green')}")
+        print(f"Discount Applied: {colored(f'- ₹{discount:.2f}', 'red')}")
+        print(f"Final Amount (With GST): {colored(f'₹{final_amount:.2f}', 'blue')}")
+        print("="*50)
+        print(colored("Thank you for shopping with us!", "magenta", attrs=["bold"]))
+        print("="*50)
 
 # -----------------------------------------------------------------------------------------------------------------
 
@@ -602,42 +696,78 @@ class Customer:
         if not predefined_items:
             print("\nAdd Items To Your Bill. Type 'stop' when you're done.")
             
+            product_trie, category_trie, category_to_products = build_tries()
+
             while True:
-                item_name = input("Enter the product name to add to the bill: ").strip()
-                if item_name.lower() == 'stop':
+                item_query = input("Enter the product name to add to the bill: ").strip()
+                if item_query.lower() == 'stop':
                     break
 
-                # Connect to the database to retrieve product details
+                # Use Trie to search for matching products
+                matched_products = product_trie.search(item_query)
+
+                if not matched_products:
+                    print("No matching products found.")
+                    continue
+
+                # Remove duplicates and maintain order
+                matched_products = list(dict.fromkeys(matched_products))  
+
+                # If multiple matches, show them in a table for selection
+                if len(matched_products) > 1:
+                    table_data = [[idx + 1, name] for idx, name in enumerate(matched_products)]
+                    print("\nMatching Products:")
+                    print(tabulate(table_data, headers=["#", "Product Name"], tablefmt="fancy_grid", stralign="center"))
+
+                    try:
+                        choice = int(input("Enter which product you want to add: "))
+                        if 1 <= choice <= len(matched_products):
+                            item_name = matched_products[choice - 1]  # Get the chosen product
+                        else:
+                            print("Invalid choice. Try again.")
+                            continue
+                    except ValueError:
+                        print("Invalid input. Please enter a number.")
+                        continue
+                else:
+                    item_name = matched_products[0]  # Directly select if only one match
+
+                # Connect to database to get product details
                 connection = sqlite3.connect(DB_NAME)
                 cursor = connection.cursor()
-
-                # Case-insensitive product search
-                cursor.execute("SELECT * FROM products WHERE LOWER(name) = LOWER(?)", (item_name,))
+                cursor.execute("SELECT * FROM products WHERE LOWER(name) = LOWER(?)", (item_name.lower(),))
                 product = cursor.fetchone()
+                connection.close()
 
                 if product:
                     product_name = product[1]  
-                    cat=product[2]
+                    category = product[2]
                     price = product[3]         
                     stock = int(product[4])      
 
                     if stock > 0:
-                        quantity = int(input(f"Enter the quantity of {product_name} to add: "))
+                        try:
+                            quantity = int(input(f"Enter the quantity of {product_name} to add: "))
 
-                        if quantity <= stock:
-                            # Add product to the bill
-                            items.append({'name': product_name, 'quantity': quantity, 'price': price,'category':cat})
+                            if quantity <= stock:
+                                # Add product to the bill
+                                items.append({'name': product_name, 'quantity': quantity, 'price': price, 'category': category})
 
-                            # Update stock in the database
-                            cursor.execute(
-                                "UPDATE products SET stock = stock - ? WHERE LOWER(name) = LOWER(?)",
-                                (quantity, item_name)
-                            )
-                            connection.commit()
+                                # Update stock in the database
+                                connection = sqlite3.connect(DB_NAME)
+                                cursor = connection.cursor()
+                                cursor.execute(
+                                    "UPDATE products SET stock = stock - ? WHERE LOWER(name) = LOWER(?)",
+                                    (quantity, product_name.lower())
+                                )
+                                connection.commit()
+                                connection.close()
 
-                            print(f"'{product_name}' added to the bill. Quantity: {quantity}, Price per unit: {price}")
-                        else:
-                            print(f"Only {stock} units of '{product_name}' are available.")
+                                print(f"'{product_name}' added to the bill. Quantity: {quantity}, Price per unit: {price}")
+                            else:
+                                print(f"Only {stock} units of '{product_name}' are available.")
+                        except ValueError:
+                            print("Invalid input. Please enter a valid quantity.")
                     else:
                         print(f"'{product_name}' is out of stock.")
                 else:
