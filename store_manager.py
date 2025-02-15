@@ -298,68 +298,114 @@ class StoreManager:
 # ----------------------------------------------------------------------------------------------------
 
 
-    def manage_discount_coupons(self):
+    def manage_discounts(self):
         
         # Fetch unique categories from the products table
         self.cursor.execute("SELECT DISTINCT category FROM products")
         categories = self.cursor.fetchall()
         
-        if categories:
-            print("\n🔹 Available Product Categories 🔹")
-            print(tabulate(categories, headers=["Category"], tablefmt="grid", numalign="center"))
-        else:
-            print("No categories found in the products table.")
-            return  # Exit if no categories found
         
-        print("\nEnter the details below to add a new discount coupon.\n")
+        print("\nChoose Discount Type:\n1. Add Coupon Code\n2. Add Product Discount\n3. Exit")
+        choice = input("Enter choice: ").strip()
+        
+        if choice == "1":
 
-        # Get coupon details from the admin
-        coupon_code = input("Enter Coupon Code: ").strip().upper()
-        
-        # Get category from the available options
-        while True:
-            category = input("Enter Product Category (from above list): ").strip().title()
-            # Check if the entered category exists in the available categories
-            if any(c[0] == category for c in categories):
-                break
+            if categories:
+                print("\n🔹 Available Product Categories 🔹")
+                print(tabulate(categories, headers=["Category"], tablefmt="grid", numalign="center"))
             else:
-                print(" Invalid category! Please enter a valid category from the list.")
-
-        while True:
-            try:
-                discount_percentage = float(input("Enter Discount Percentage (%): ").strip())
-                if discount_percentage <= 0 or discount_percentage > 100:
-                    print("Invalid percentage! Must be between 0 and 100.")
-                    continue
-                break
-            except ValueError:
-                print("Invalid input! Please enter a numeric value.")
-
-        while True:
-            expiry_date = input("Enter Expiry Date (YYYY-MM-DD): ").strip()
-            try:
-                # Validate date format
-                expiry_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
-                if expiry_date <= datetime.today().date():
-                    print("Expiry date must be in the future!")
-                    continue
-                expiry_date = expiry_date.strftime("%Y-%m-%d")  # Convert back to string for database
-                break
-            except ValueError:
-                print("Invalid date format! Please enter in YYYY-MM-DD format.")
-
-        # Insert data into the database
-        try:
-            self.cursor.execute("""
-                INSERT INTO discount_coupons (coupon_code, category, discount_percentage, expiry_date) 
-                VALUES (?, ?, ?, ?)
-            """, (coupon_code, category, discount_percentage, expiry_date))
+                print("No categories found in the products table.")
+                return  # Exit if no categories found
             
-            self.connection.commit()  # Commit the transaction
-            print(f"\n✅ Coupon '{coupon_code}' added successfully for category '{category}' with {discount_percentage}% discount! Expiry: {expiry_date}\n")
+            
+            print("\nEnter the details below to add a new discount coupon.\n")
 
-        except Exception as e:
-            print(f"Error: {e}\n")       
+            # Get coupon details from the admin
+            coupon_code = input("Enter Coupon Code: ").strip().upper()
+            
+            # Get category from the available options
+            while True:
+                category = input("Enter Product Category (from above list): ").strip().title()
+                if any(c[0] == category for c in categories):
+                    break
+                else:
+                    print(" Invalid category! Please enter a valid category from the list.")
+
+            while True:
+                try:
+                    discount_percentage = float(input("Enter Discount Percentage (%): ").strip())
+                    if discount_percentage <= 0 or discount_percentage > 100:
+                        print("Invalid percentage! Must be between 0 and 100.")
+                        continue
+                    break
+                except ValueError:
+                    print("Invalid input! Please enter a numeric value.")
+
+            while True:
+                expiry_date = input("Enter Expiry Date (YYYY-MM-DD): ").strip()
+                try:
+                    expiry_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+                    if expiry_date <= datetime.today().date():
+                        print("Expiry date must be in the future!")
+                        continue
+                    expiry_date = expiry_date.strftime("%Y-%m-%d")  
+                    break
+                except ValueError:
+                    print("Invalid date format! Please enter in YYYY-MM-DD format.")
+
+            # Insert coupon into the database
+            try:
+                self.cursor.execute("""
+                    INSERT INTO discount_coupons (coupon_code, category, discount_percentage, expiry_date) 
+                    VALUES (?, ?, ?, ?)
+                """, (coupon_code, category, discount_percentage, expiry_date))
+                
+                self.connection.commit()  
+                print(f"\nCoupon '{coupon_code}' added successfully for category '{category}' with {discount_percentage}% discount! Expiry: {expiry_date}\n")
+
+            except Exception as e:
+                print(f"Error: {e}\n")      
+
+        elif choice == "2":
+            print("\nEnter the details below to add a new product discount.\n")
+
+            # Get product details
+            product_name = input("Enter Product Name: ").strip().title()
+
+            while True:
+                try:
+                    buy_quantity = int(input("Enter quantity required to avail offer (Buy _ Get _ Free): ").strip())
+                    free_quantity = int(input(f"Enter free quantity for {buy_quantity} items: ").strip())
+
+                    if buy_quantity <= 0 or free_quantity <= 0:
+                        print("Invalid quantity! Please enter positive numbers.")
+                        continue
+                    
+                    discount_type = f"Buy {buy_quantity} Get {free_quantity} Free"
+                    break
+                except ValueError:
+                    print("Invalid input! Please enter a numeric value.")
+
+            discount_description = input("Enter Discount Description: ").strip()
+
+            # Insert product discount into the database
+            try:
+                self.cursor.execute("""
+                    INSERT INTO product_discounts (product_name, discount_type, discount_description) 
+                    VALUES (?, ?, ?)
+                """, (product_name, discount_type, discount_description))
+                
+                self.connection.commit()  
+                print(f"\nDiscount '{discount_type}' added successfully for product '{product_name}'!\n")
+
+            except Exception as e:
+                print(f"Error: {e}\n")  
+
+        elif choice=="3":
+            return    
+
+        else:
+            print("Invalid choice! Please enter 1,2 or 3.")       
 # ----------------------------------------------------------------------------------------------------
     def see_feedback(self):
         # Connect to the database
@@ -441,7 +487,7 @@ def main():
                         ["3", "Send Promotional Mail to Customers"],
                         ["4", "View Customers Data"],
                         ["5", "View Returned Items by Customers"],
-                        ["6", "Manage Discount Coupons"],
+                        ["6", "Add New Discounts & Coupons at Store"],
                         ["7", "View Feedbacks Of Customers"],
                         ["8", "Exit"]
                     ]
@@ -463,7 +509,7 @@ def main():
                     elif manager_choice == "5":
                         manager.view_returned_items()
                     elif manager_choice == "6":
-                        manager.manage_discount_coupons()
+                        manager.manage_discounts()
                     elif manager_choice=="7":
                         manager.see_feedback()
                     elif manager_choice == "8":
