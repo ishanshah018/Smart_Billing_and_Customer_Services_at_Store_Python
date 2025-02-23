@@ -31,9 +31,7 @@ E.X: "cat" and "car" share the prefix "ca", so they branch after "a".
 
 ✅ Autocomplete (like Google search suggestions)
 ✅ Spell Checker
-✅ IP Routing (Longest Prefix Match)
 ✅ Dictionary Word Lookup
-✅ DNA Sequence Matching
 
 
 
