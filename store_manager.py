@@ -270,8 +270,53 @@ class StoreManager:
         # Format data (round smart coins to 2 decimal places)
         table_data = [[row[0], row[1], row[2], f"₹{row[3]:,.2f}"] for row in results]
 
-        # Print the table with solid borders
+        # Display customer data
         print("\n" + tabulate(table_data, headers=headers, tablefmt="double_grid", colalign=("center", "left", "center", "right")) + "\n")
+
+        # Prompt user to view top purchased items
+        user_input = input("Enter the customer ID or mobile number to view their top purchased items: ").strip()
+
+        # Check if input is an ID or phone number
+        try:
+            self.cursor.execute("SELECT phone FROM customers WHERE id = ?", (int(user_input),))
+            phone_number = self.cursor.fetchone()
+            if phone_number:
+                customer_mobile = phone_number[0]
+            else:
+                print("\nInvalid customer ID.\n")
+                return
+        except ValueError:
+            self.cursor.execute("SELECT phone FROM customers WHERE phone = ?", (user_input,))
+            phone_number = self.cursor.fetchone()
+            if phone_number:
+                customer_mobile = phone_number[0]
+            else:
+                print("\nInvalid mobile number.\n")
+                return
+
+        # Fetch top purchased items by quantity for the selected customer
+        self.cursor.execute("""
+            SELECT item_name, SUM(quantity) AS total_quantity
+            FROM item_purchase_history
+            WHERE customer_mobile = ?
+            GROUP BY item_name
+            ORDER BY total_quantity DESC
+            LIMIT 3
+        """, (customer_mobile,))
+
+        item_results = self.cursor.fetchall()
+
+        if not item_results:
+            print(f"\nNo purchase history found for customer: {customer_mobile}\n")
+            return
+
+        # Table headers for item history
+        item_headers = ["Item Name", "Total Quantity Purchased"]
+
+        # Display item purchase history
+        item_table_data = [[row[0], row[1]] for row in item_results]
+        print("\nTop Purchased Items for Customer (" + customer_mobile + "):")
+        print(tabulate(item_table_data, headers=item_headers, tablefmt="double_grid", colalign=("left", "center")) + "\n")
 
 # ----------------------------------------------------------------------------------------------------
 
@@ -485,7 +530,7 @@ def main():
                         ["1", "View Products Inventory"],
                         ["2", "View Sales Report"],
                         ["3", "Send Promotional Mail to Customers"],
-                        ["4", "View Customers Data"],
+                        ["4", "View Customers Data & \n Top Purchased Item by Customer"],
                         ["5", "View Returned Items by Customers"],
                         ["6", "Add New Discounts & Coupons at Store"],
                         ["7", "View Feedbacks Of Customers"],
