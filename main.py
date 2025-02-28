@@ -1,7 +1,7 @@
 import os
 import sys
 from tabulate import tabulate  # For table formatting
-from termcolor import colored
+from termcolor import colored  # For color texts [used only at some places]
 
 
 # Function to print the menu in a centered and properly formatted table

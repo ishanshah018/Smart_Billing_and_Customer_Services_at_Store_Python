@@ -26,9 +26,9 @@ def get_current_month():
 
 class TrieNode:
     def __init__(self):
-        self.children = {}
-        self.is_end = False
-        self.items = []  # Stores product names or categories
+        self.children = {}   # Dictionary to store child nodes (characters)
+        self.is_end = False  # Marks the end of a word
+        self.items = []  # Stores full product names or categories for suggestions
 
 class Trie:
     def __init__(self):
@@ -872,32 +872,42 @@ class Customer:
 
         
         # Ask if the user wants to redeem Smart Coins
+        # Ask if the user wants to redeem Smart Coins
         if self.smart_coins > 0:
             self.view_smart_coins()
-            redeem_coins = float(input("Enter how many Smart Coins you want to redeem: "))
             
-            # Calculate the maximum coins that can be redeemed based on the bill amount
-            max_redeemable_coins = min(self.smart_coins, total_amount)  # Ensure it does not exceed the bill amount
-            
-            if redeem_coins > max_redeemable_coins:
-                print(f"You can only redeem up to {max_redeemable_coins} Smart Coins based on your bill amount of ₹{total_amount}.")
-            else:
-                # Deduct the redeemed smart coins from the user's balance
-                self.smart_coins -= redeem_coins  # Update the local balance
+            while True:
+                user_input = input("Enter how many Smart Coins you want to redeem (or type 'skip' to continue without redeeming): ").strip().lower()
                 
-                # Update the smart coins in the database based on the mobile number
-                cursor.execute(
-                    "UPDATE customers SET smart_coins = ? WHERE phone = ?",
-                    (self.smart_coins, self.phone)  # Use the mobile number for identification
-                )
-                cursor.connection.commit()  # Commit the changes to the database
+                if user_input == 'skip':
+                    print("Skipping Smart Coins redemption.")
+                    break
                 
-                # Apply the discount for the redeemed coins
-                if redeem_coins > 0:
-                    print(f"Your {redeem_coins} Smart Coins will be redeemed for a discount.")
-                    discount += redeem_coins  # Add the redeemed coins value to the discount
-                else:
-                    print("No Smart Coins redeemed.")
+                try:
+                    redeem_coins = float(user_input)
+                    max_redeemable_coins = min(self.smart_coins, total_amount)  # Ensure it does not exceed the bill amount
+                    
+                    if 0 <= redeem_coins <= max_redeemable_coins:
+                        # Deduct the redeemed smart coins from the user's balance
+                        self.smart_coins -= redeem_coins
+                        
+                        # Update the smart coins in the database based on the mobile number
+                        cursor.execute(
+                            "UPDATE customers SET smart_coins = ? WHERE phone = ?",
+                            (self.smart_coins, self.phone)
+                        )
+                        cursor.connection.commit()
+                        
+                        # Apply the discount for the redeemed coins
+                        if redeem_coins > 0:
+                            print(f"Your {redeem_coins} Smart Coins have been redeemed for a discount.")
+                            discount += redeem_coins
+                        break
+                    else:
+                        print(f"Invalid amount! You can redeem up to {max_redeemable_coins} Smart Coins based on your bill of ₹{total_amount}. Please try again.")
+                
+                except ValueError:
+                    print("Invalid input! Please enter a valid number or type 'skip'.")
 
                 # Continue with the rest of the code...
                 print(f"Total discount applied: {discount}")

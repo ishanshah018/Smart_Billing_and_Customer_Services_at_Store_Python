@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from tabulate import tabulate  #for Table Formats
 from termcolor import colored  #for Table Colored
 from datetime import datetime
-import requests # To send promotional message to customer here i used twilio library of python
+import requests # To send promotional message to customer here I used Twilio
 
 # Initialize SQLite database
 DB_NAME = "mall_inventory.db"
