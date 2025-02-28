@@ -227,9 +227,9 @@ class StoreManager:
     def send_sms(self, to_number, message):
         
         # Twilio credentials (Replace with your actual details)
-        TWILIO_SID = "AC0bf05489aa1d3b0c1f1f190f3d3d4452"
-        TWILIO_AUTH_TOKEN = "9c8c360f3977b78acd30c99196439122"
-        TWILIO_PHONE_NUMBER = "+16062122916"
+        TWILIO_SID =
+        TWILIO_AUTH_TOKEN =
+        TWILIO_PHONE_NUMBER = 
 
 
 
